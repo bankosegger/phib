@@ -26,16 +26,24 @@ function renderHistory() {
   historyEl.innerHTML = '';
   for (const item of items) {
     const li = document.createElement('li');
+
     const a = document.createElement('a');
     a.href = item.shortUrl;
     a.target = '_blank';
     a.rel = 'noopener';
     a.textContent = item.shortUrl.replace(/^https?:\/\//, '');
-    const span = document.createElement('span');
-    span.className = 'target';
-    span.textContent = item.target;
+
+    const target = document.createElement('span');
+    target.className = 'target';
+    target.title = item.target;
+    try {
+      target.textContent = new URL(item.target).hostname.replace(/^www\./, '');
+    } catch {
+      target.textContent = item.target;
+    }
+
     li.appendChild(a);
-    li.appendChild(span);
+    li.appendChild(target);
     historyEl.appendChild(li);
   }
 }
@@ -89,10 +97,14 @@ form.addEventListener('submit', async (e) => {
 copyBtn.addEventListener('click', async () => {
   try {
     await navigator.clipboard.writeText(shortLinkEl.href);
-    copyBtn.textContent = 'Copied!';
-    setTimeout(() => (copyBtn.textContent = 'Copy'), 1500);
+    copyBtn.classList.add('copied');
+    copyBtn.setAttribute('aria-label', 'Copied');
+    setTimeout(() => {
+      copyBtn.classList.remove('copied');
+      copyBtn.setAttribute('aria-label', 'Copy short link');
+    }, 1500);
   } catch {
-    copyBtn.textContent = 'Failed';
+    copyBtn.setAttribute('aria-label', 'Copy failed');
   }
 });
 
