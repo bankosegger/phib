@@ -1,19 +1,11 @@
+require('dotenv').config();
+
 const path = require('path');
 const express = require('express');
-const Database = require('better-sqlite3');
 const { nanoid } = require('nanoid');
+const redis = require('./lib/redis');
 
 const PORT = process.env.PORT || 3000;
-const db = new Database(path.join(__dirname, 'urls.db'));
-
-db.exec(`
-  CREATE TABLE IF NOT EXISTS urls (
-    code TEXT PRIMARY KEY,
-    target TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    clicks INTEGER NOT NULL DEFAULT 0
-  )
-`);
 
 const app = express();
 app.use(express.json());
@@ -28,59 +20,99 @@ function isValidUrl(value) {
   }
 }
 
-app.post('/api/shorten', (req, res) => {
+function parseRecord(record) {
+  return typeof record === 'string' ? JSON.parse(record) : record;
+}
+
+async function claimCode(code, target) {
+  const claimed = await redis.set(
+    `url:${code}`,
+    { target, createdAt: new Date().toISOString() },
+    { nx: true }
+  );
+  return claimed === 'OK';
+}
+
+app.post('/api/shorten', async (req, res) => {
   const { url, customCode } = req.body || {};
 
   if (!url || !isValidUrl(url)) {
     return res.status(400).json({ error: 'Please provide a valid http/https URL.' });
   }
 
-  let code = customCode && customCode.trim();
+  const customTrimmed = customCode && customCode.trim();
 
-  if (code) {
-    if (!/^[a-zA-Z0-9_-]{3,20}$/.test(code)) {
-      return res.status(400).json({ error: 'Custom code must be 3-20 characters (letters, numbers, - or _).' });
+  try {
+    let code;
+
+    if (customTrimmed) {
+      if (!/^[a-zA-Z0-9_-]{3,20}$/.test(customTrimmed)) {
+        return res.status(400).json({ error: 'Custom code must be 3-20 characters (letters, numbers, - or _).' });
+      }
+      if (!(await claimCode(customTrimmed, url))) {
+        return res.status(409).json({ error: 'That custom code is already taken.' });
+      }
+      code = customTrimmed;
+    } else {
+      for (let attempts = 0; attempts < 5 && !code; attempts++) {
+        const candidate = nanoid(6);
+        if (await claimCode(candidate, url)) {
+          code = candidate;
+        }
+      }
+      if (!code) {
+        return res.status(500).json({ error: 'Could not generate a unique code, please try again.' });
+      }
     }
-    const existing = db.prepare('SELECT code FROM urls WHERE code = ?').get(code);
-    if (existing) {
-      return res.status(409).json({ error: 'That custom code is already taken.' });
-    }
-  } else {
-    do {
-      code = nanoid(6);
-    } while (db.prepare('SELECT code FROM urls WHERE code = ?').get(code));
+
+    res.json({
+      code,
+      shortUrl: `${req.protocol}://${req.get('host')}/${code}`,
+      target: url,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
   }
-
-  db.prepare('INSERT INTO urls (code, target) VALUES (?, ?)').run(code, url);
-
-  res.json({
-    code,
-    shortUrl: `${req.protocol}://${req.get('host')}/${code}`,
-    target: url,
-  });
 });
 
-app.get('/api/stats/:code', (req, res) => {
-  const row = db.prepare('SELECT code, target, created_at, clicks FROM urls WHERE code = ?').get(req.params.code);
-  if (!row) {
-    return res.status(404).json({ error: 'Short URL not found.' });
+app.get('/api/stats/:code', async (req, res) => {
+  try {
+    const record = await redis.get(`url:${req.params.code}`);
+    if (!record) {
+      return res.status(404).json({ error: 'Short URL not found.' });
+    }
+    const { target, createdAt } = parseRecord(record);
+    const clicks = (await redis.get(`clicks:${req.params.code}`)) || 0;
+    res.json({ code: req.params.code, target, createdAt, clicks: Number(clicks) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Something went wrong.' });
   }
-  res.json(row);
 });
 
-app.get('/:code', (req, res, next) => {
-  const row = db.prepare('SELECT target FROM urls WHERE code = ?').get(req.params.code);
-  if (!row) {
-    return next();
+app.get('/:code', async (req, res, next) => {
+  try {
+    const record = await redis.get(`url:${req.params.code}`);
+    if (!record) {
+      return next();
+    }
+    const { target } = parseRecord(record);
+    redis.incr(`clicks:${req.params.code}`).catch((err) => console.error(err));
+    res.redirect(target);
+  } catch (err) {
+    next(err);
   }
-  db.prepare('UPDATE urls SET clicks = clicks + 1 WHERE code = ?').run(req.params.code);
-  res.redirect(row.target);
 });
 
 app.use((req, res) => {
   res.status(404).sendFile(path.join(__dirname, 'public', '404.html'));
 });
 
-app.listen(PORT, () => {
-  console.log(`Short URL server running at http://localhost:${PORT}`);
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Short URL server running at http://localhost:${PORT}`);
+  });
+}
+
+module.exports = app;

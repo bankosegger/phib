@@ -1,2 +1,4 @@
 node_modules/
-urls.db
+.env
+.env.local
+.vercel
