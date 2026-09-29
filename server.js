@@ -34,35 +34,23 @@ async function claimCode(code, target) {
 }
 
 app.post('/api/shorten', async (req, res) => {
-  const { url, customCode } = req.body || {};
+  const { url } = req.body || {};
 
   if (!url || !isValidUrl(url)) {
     return res.status(400).json({ error: 'Please provide a valid http/https URL.' });
   }
 
-  const customTrimmed = customCode && customCode.trim();
-
   try {
     let code;
 
-    if (customTrimmed) {
-      if (!/^[a-zA-Z0-9_-]{3,20}$/.test(customTrimmed)) {
-        return res.status(400).json({ error: 'Custom code must be 3-20 characters (letters, numbers, - or _).' });
+    for (let attempts = 0; attempts < 5 && !code; attempts++) {
+      const candidate = nanoid(6);
+      if (await claimCode(candidate, url)) {
+        code = candidate;
       }
-      if (!(await claimCode(customTrimmed, url))) {
-        return res.status(409).json({ error: 'That custom code is already taken.' });
-      }
-      code = customTrimmed;
-    } else {
-      for (let attempts = 0; attempts < 5 && !code; attempts++) {
-        const candidate = nanoid(6);
-        if (await claimCode(candidate, url)) {
-          code = candidate;
-        }
-      }
-      if (!code) {
-        return res.status(500).json({ error: 'Could not generate a unique code, please try again.' });
-      }
+    }
+    if (!code) {
+      return res.status(500).json({ error: 'Could not generate a unique code, please try again.' });
     }
 
     res.json({

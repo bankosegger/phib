@@ -1,6 +1,5 @@
 const form = document.getElementById('shorten-form');
 const urlInput = document.getElementById('url-input');
-const customCodeInput = document.getElementById('custom-code');
 const errorEl = document.getElementById('error');
 const resultEl = document.getElementById('result');
 const shortLinkEl = document.getElementById('short-link');
@@ -71,13 +70,12 @@ form.addEventListener('submit', async (e) => {
   errorEl.hidden = true;
 
   const url = urlInput.value.trim();
-  const customCode = customCodeInput.value.trim();
 
   try {
     const res = await fetch('/api/shorten', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url, customCode: customCode || undefined }),
+      body: JSON.stringify({ url }),
     });
     const data = await res.json();
 
@@ -88,7 +86,6 @@ form.addEventListener('submit', async (e) => {
 
     showResult(data);
     urlInput.value = '';
-    customCodeInput.value = '';
   } catch {
     showError('Could not reach the server. Please try again.');
   }
