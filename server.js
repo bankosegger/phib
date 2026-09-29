@@ -6,6 +6,11 @@ const { nanoid } = require('nanoid');
 const redis = require('./lib/redis');
 
 const PORT = process.env.PORT || 3000;
+const SHORT_DOMAIN = process.env.SHORT_DOMAIN;
+
+if (!SHORT_DOMAIN) {
+  throw new Error('Missing SHORT_DOMAIN environment variable.');
+}
 
 const app = express();
 app.use(express.json());
@@ -20,8 +25,8 @@ function isValidUrl(value) {
   }
 }
 
-function isOwnDomain(value, req) {
-  return new URL(value).hostname.toLowerCase() === req.hostname.toLowerCase();
+function isOwnDomain(value) {
+  return new URL(value).hostname.toLowerCase() === SHORT_DOMAIN.toLowerCase();
 }
 
 function parseRecord(record) {
@@ -44,7 +49,7 @@ app.post('/api/shorten', async (req, res) => {
     return res.status(400).json({ error: 'Please provide a valid http/https URL.' });
   }
 
-  if (isOwnDomain(url, req)) {
+  if (isOwnDomain(url)) {
     return res.status(400).json({ error: 'That URL is already a short link from this site.' });
   }
 
@@ -63,7 +68,7 @@ app.post('/api/shorten', async (req, res) => {
 
     res.json({
       code,
-      shortUrl: `${req.protocol}://${req.get('host')}/${code}`,
+      shortUrl: `https://${SHORT_DOMAIN}/${code}`,
       target: url,
     });
   } catch (err) {
