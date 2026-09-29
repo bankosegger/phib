@@ -20,6 +20,10 @@ function isValidUrl(value) {
   }
 }
 
+function isOwnDomain(value, req) {
+  return new URL(value).hostname.toLowerCase() === req.hostname.toLowerCase();
+}
+
 function parseRecord(record) {
   return typeof record === 'string' ? JSON.parse(record) : record;
 }
@@ -38,6 +42,10 @@ app.post('/api/shorten', async (req, res) => {
 
   if (!url || !isValidUrl(url)) {
     return res.status(400).json({ error: 'Please provide a valid http/https URL.' });
+  }
+
+  if (isOwnDomain(url, req)) {
+    return res.status(400).json({ error: 'That URL is already a short link from this site.' });
   }
 
   try {
