@@ -1,151 +1,79 @@
+/* Phib overrides — layers on top of https://bankosegger.me/banko.css,
+ * which provides the --banko-* tokens, fonts, and base element styles. */
+
 :root {
-  --page-bg: #000000;
-  --accent: #ea580c;
-  --on-accent: #ffffff;
-  --bg: #ffffff;
-  --fg: #000000;
-  --muted: #666666;
-  --border: #eaeaea;
-  --border-hover: #999999;
-  --input-bg: #ffffff;
-  --error: #e00;
-  --row-bg: #fafafa;
+  --phib-error: #ff6b5e;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0f1419;
-    --fg: #ffffff;
-    --muted: #888888;
-    --border: #333333;
-    --border-hover: #666666;
-    --input-bg: #000000;
-    --error: #ff6666;
-    --row-bg: #182029;
-  }
-}
-
-* {
-  box-sizing: border-box;
+body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100dvh;
 }
 
 [hidden] {
   display: none !important;
 }
 
-body {
-  margin: 0;
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--page-bg);
-  color: var(--fg);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", Roboto, Helvetica, Arial, sans-serif;
-  padding: 24px;
-}
-
 .card {
   width: 100%;
   max-width: 440px;
-  padding: 40px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg);
+  padding: 2.5rem;
+  background: transparent;
+  border: none;
 }
 
-h1 {
-  margin: 0 0 6px;
-  font-size: 22px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
+.card h1 {
+  margin: 0 0 0.4rem;
+  font-family: var(--banko-font);
 }
 
 .dot {
-  color: var(--accent);
+  color: var(--banko-accent);
 }
 
 .subtitle {
-  margin: 0 0 24px;
-  color: var(--muted);
-  font-size: 14px;
+  margin: 0 0 1.5rem;
+  color: var(--banko-muted);
+  font-size: 0.875rem;
 }
 
 form {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-}
-
-input {
-  width: 100%;
-  padding: 10px 12px;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: var(--input-bg);
-  color: var(--fg);
-  font-size: 14px;
-  outline: none;
-  transition: border-color 0.15s ease;
-}
-
-input::placeholder {
-  color: var(--muted);
-}
-
-input:focus {
-  border-color: var(--accent);
+  gap: 0.5rem;
 }
 
 .row {
   display: flex;
-  gap: 8px;
-}
-
-.row input {
-  flex: 1;
-}
-
-button {
-  padding: 10px 18px;
-  border-radius: 6px;
-  border: 1px solid var(--accent);
-  background: var(--accent);
-  color: var(--on-accent);
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: opacity 0.15s ease;
-}
-
-button:hover {
-  opacity: 0.85;
+  justify-content: space-between;
+  width: 100%;
 }
 
 .error {
-  color: var(--error);
-  font-size: 13px;
-  margin: 14px 0 0;
+  color: var(--phib-error);
+  font-size: 0.8125rem;
+  margin: 0.875rem 0 0;
 }
 
 .result {
-  margin-top: 16px;
+  margin-top: 1rem;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
-  background: var(--row-bg);
-  border: 1px solid var(--border);
+  gap: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  background: var(--banko-sand);
+  box-shadow: var(--banko-hairline);
   border-radius: 6px;
 }
 
 .result a {
   flex: 1;
-  color: var(--fg);
+  color: var(--banko-ink);
   text-decoration: none;
-  font-weight: 500;
-  font-size: 14px;
+  font-weight: 600;
+  font-size: 0.875rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -165,14 +93,15 @@ button:hover {
   padding: 0;
   flex-shrink: 0;
   background: transparent;
-  color: var(--fg);
-  border: 1px solid var(--border);
-  transition: border-color 0.15s ease, transform 0.1s ease;
+  box-shadow: var(--banko-hairline);
+  color: var(--banko-muted);
+  transition: box-shadow 0.15s ease, transform 0.1s ease, color 0.15s ease;
 }
 
 .copy-btn:hover {
-  border-color: var(--border-hover);
-  opacity: 1;
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--banko-muted);
+  color: var(--banko-ink);
 }
 
 .copy-btn:active {
@@ -186,7 +115,7 @@ button:hover {
 
 .copy-btn .icon-check {
   display: none;
-  color: var(--accent);
+  color: var(--banko-accent);
 }
 
 .copy-btn.copied .icon-copy {
@@ -199,7 +128,7 @@ button:hover {
 }
 
 .copy-btn.copied {
-  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--banko-accent);
 }
 
 @keyframes pop {
@@ -222,10 +151,10 @@ button:hover {
   bottom: calc(100% + 8px);
   left: 50%;
   transform: translateX(-50%) translateY(4px);
-  background: var(--accent);
-  color: var(--on-accent);
+  background: var(--banko-accent);
+  color: #fff;
   font-size: 11px;
-  font-weight: 500;
+  font-weight: 600;
   padding: 4px 9px;
   border-radius: 5px;
   white-space: nowrap;
@@ -241,7 +170,7 @@ button:hover {
   left: 50%;
   transform: translateX(-50%);
   border: 4px solid transparent;
-  border-top-color: var(--accent);
+  border-top-color: var(--banko-accent);
 }
 
 .copy-btn.copied .tooltip {
@@ -251,13 +180,12 @@ button:hover {
 
 .history {
   list-style: none;
-  margin: 24px 0 0;
   padding: 0;
-  border-top: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   max-height: 200px;
   overflow-y: auto;
+  border: none;
 }
 
 .history:empty {
@@ -269,9 +197,8 @@ button:hover {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 12px;
-  padding: 10px 2px;
-  border-bottom: 1px solid var(--border);
+  gap: 0.75rem;
+  padding: 0.625rem 0.125rem;
 }
 
 .history li:last-child {
@@ -279,10 +206,10 @@ button:hover {
 }
 
 .history a {
-  color: var(--fg);
+  color: var(--banko-ink);
   text-decoration: none;
-  font-weight: 500;
-  font-size: 13px;
+  font-weight: 600;
+  font-size: 0.8125rem;
   flex-shrink: 0;
 }
 
@@ -291,8 +218,8 @@ button:hover {
 }
 
 .history .target {
-  color: var(--muted);
-  font-size: 12px;
+  color: var(--banko-muted);
+  font-size: 0.75rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
