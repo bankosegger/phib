@@ -5,8 +5,15 @@ const resultEl = document.getElementById('result');
 const shortLinkEl = document.getElementById('short-link');
 const copyBtn = document.getElementById('copy-btn');
 const historyEl = document.getElementById('history');
+const twitterVideoEl = document.getElementById('twitter-video');
 
 const HISTORY_KEY = 'phib-history';
+const TWITTER_VIDEO_KEY = 'phib-twitter-video';
+
+twitterVideoEl.checked = localStorage.getItem(TWITTER_VIDEO_KEY) === 'true';
+twitterVideoEl.addEventListener('change', () => {
+  localStorage.setItem(TWITTER_VIDEO_KEY, twitterVideoEl.checked);
+});
 
 function loadHistory() {
   try {
@@ -75,7 +82,7 @@ form.addEventListener('submit', async (e) => {
     const res = await fetch('/api/shorten', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url }),
+      body: JSON.stringify({ url, twitterVideo: twitterVideoEl.checked }),
     });
     const data = await res.json();
 

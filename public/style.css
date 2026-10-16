@@ -51,6 +51,15 @@ form {
   width: 100%;
 }
 
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--banko-muted);
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
 .error {
   color: var(--phib-error);
   font-size: 0.8125rem;

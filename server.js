@@ -4,6 +4,7 @@ const path = require('path');
 const express = require('express');
 const { nanoid } = require('nanoid');
 const redis = require('./lib/redis');
+const { parseStatus, resolveTwitterVideo, TwitterError } = require('./lib/twitter');
 
 const PORT = process.env.PORT || 3000;
 const SHORT_DOMAIN = process.env.SHORT_DOMAIN;
@@ -43,7 +44,7 @@ async function claimCode(code, target) {
 }
 
 app.post('/api/shorten', async (req, res) => {
-  const { url } = req.body || {};
+  let { url, twitterVideo } = req.body || {};
 
   if (!url || !isValidUrl(url)) {
     return res.status(400).json({ error: 'Please provide a valid http/https URL.' });
@@ -54,6 +55,12 @@ app.post('/api/shorten', async (req, res) => {
   }
 
   try {
+    const source = url;
+    const status = twitterVideo === true ? parseStatus(url) : null;
+    if (status) {
+      url = await resolveTwitterVideo(status);
+    }
+
     let code;
 
     for (let attempts = 0; attempts < 5 && !code; attempts++) {
@@ -70,8 +77,12 @@ app.post('/api/shorten', async (req, res) => {
       code,
       shortUrl: `https://${SHORT_DOMAIN}/${code}`,
       target: url,
+      source,
     });
   } catch (err) {
+    if (err instanceof TwitterError) {
+      return res.status(400).json({ error: err.message });
+    }
     console.error(err);
     res.status(500).json({ error: 'Something went wrong. Please try again.' });
   }
@@ -100,6 +111,8 @@ app.get('/:code', async (req, res, next) => {
     }
     const { target } = parseRecord(record);
     redis.incr(`clicks:${req.params.code}`).catch((err) => console.error(err));
+    // Hosts like video.twimg.com reject requests whose Referer is another site.
+    res.set('Referrer-Policy', 'no-referrer');
     res.redirect(target);
   } catch (err) {
     next(err);
