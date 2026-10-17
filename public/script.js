@@ -14,6 +14,8 @@ const HISTORY_KEY = 'phib-history';
 const QUOTE_KEY = 'phib-quote';
 
 const QUOTES = [
+  'Get phibed!',
+  'Phib it!.',
   'Long story short.',
   'Brevity is the soul of wit. This is very witty.',
   'Your URL called. It wants to lose some weight.',

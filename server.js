@@ -125,6 +125,35 @@ app.get('/api/replies/:id', async (req, res) => {
   }
 });
 
+app.get('/api', (req, res) => {
+  res.json({
+    name: 'phib',
+    description: 'Paste a long URL, get a short one.',
+    endpoints: [
+      {
+        method: 'POST',
+        path: '/api/shorten',
+        body: { url: 'https://example.com', twitterVideo: 'optional boolean' },
+        description: 'Shortens a URL. With twitterVideo: true, Twitter/X post links are shortened to their video.',
+      },
+      {
+        method: 'GET',
+        path: '/api/stats/:code',
+        description: 'Target, creation date and click count of a short link.',
+      },
+      {
+        method: 'GET',
+        path: '/api/replies/:tweetId',
+        description: 'Top replies of a Twitter/X post.',
+      },
+    ],
+  });
+});
+
+app.all('/api/*', (req, res) => {
+  res.status(404).json({ error: 'Unknown API endpoint. See /api for the list.' });
+});
+
 app.get('/media', async (req, res, next) => {
   const { url } = req.query;
   let valid = false;
