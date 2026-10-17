@@ -58,25 +58,30 @@
       </button>
     </div>
 
-    <div id="tweet" class="tweet" hidden>
-      <video id="tweet-video" class="tweet-video" controls playsinline preload="metadata"></video>
-      <div class="tweet-author">
-        <img id="tweet-avatar" class="tweet-avatar" alt="" referrerpolicy="no-referrer" />
-        <div>
-          <a id="tweet-name" class="tweet-name" target="_blank" rel="noopener"></a>
-          <span id="tweet-handle" class="tweet-handle"></span>
+    <div id="tweet-layout" class="tweet-layout" hidden>
+      <div class="tweet">
+        <video id="tweet-video" class="tweet-video" controls playsinline preload="metadata"></video>
+        <div class="tweet-author">
+          <img id="tweet-avatar" class="tweet-avatar" alt="" referrerpolicy="no-referrer" />
+          <div>
+            <a id="tweet-name" class="tweet-name" target="_blank" rel="noopener"></a>
+            <span id="tweet-handle" class="tweet-handle"></span>
+          </div>
         </div>
+        <p id="tweet-text" class="tweet-text"></p>
+        <p class="tweet-meta">
+          <span id="tweet-meta"></span> ·
+          <a id="tweet-link" target="_blank" rel="noopener">View post</a>
+        </p>
       </div>
-      <p id="tweet-text" class="tweet-text"></p>
-      <p class="tweet-meta">
-        <span id="tweet-meta"></span> ·
-        <a id="tweet-link" target="_blank" rel="noopener">View post</a>
-      </p>
+
+      <section id="comments" class="comments" hidden></section>
     </div>
 
     <ul id="history" class="history"></ul>
   </main>
 
+  <script src="comments.js"></script>
   <script src="script.js"></script>
   <script src="https://bankosegger.me/banko-tag.js" defer></script>
 

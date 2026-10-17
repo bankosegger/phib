@@ -5,7 +5,7 @@ const express = require('express');
 const { nanoid } = require('nanoid');
 const redis = require('./lib/redis');
 const { Readable } = require('stream');
-const { parseStatus, resolveTwitterVideo, TwitterError, isTwimg } = require('./lib/twitter');
+const { parseStatus, resolveTwitterVideo, fetchReplies, TwitterError, isTwimg } = require('./lib/twitter');
 const { renderWatchPage } = require('./lib/watch');
 
 const PORT = process.env.PORT || 3000;
@@ -106,6 +106,22 @@ app.get('/api/stats/:code', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Something went wrong.' });
+  }
+});
+
+app.get('/api/replies/:id', async (req, res) => {
+  if (!/^\d{1,20}$/.test(req.params.id)) {
+    return res.status(400).json({ error: 'Invalid tweet id.' });
+  }
+  try {
+    const replies = await fetchReplies(req.params.id);
+    res.set('Cache-Control', 'public, max-age=300');
+    res.json({ replies });
+  } catch (err) {
+    if (!(err instanceof TwitterError)) {
+      console.error(err);
+    }
+    res.status(502).json({ error: 'Could not load replies.' });
   }
 });
 

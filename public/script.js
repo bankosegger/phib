@@ -6,7 +6,8 @@ const shortLinkEl = document.getElementById('short-link');
 const copyBtn = document.getElementById('copy-btn');
 const historyEl = document.getElementById('history');
 const twitterVideoEl = document.getElementById('twitter-video');
-const tweetEl = document.getElementById('tweet');
+const tweetLayoutEl = document.getElementById('tweet-layout');
+const commentsEl = document.getElementById('comments');
 
 const HISTORY_KEY = 'phib-history';
 const TWITTER_VIDEO_KEY = 'phib-twitter-video';
@@ -70,7 +71,8 @@ function hideTweet() {
   videoEl.pause();
   videoEl.removeAttribute('src');
   videoEl.load();
-  tweetEl.hidden = true;
+  tweetLayoutEl.hidden = true;
+  clearComments(commentsEl);
 }
 
 function renderTweet(tweet, videoUrl) {
@@ -81,6 +83,7 @@ function renderTweet(tweet, videoUrl) {
   const { author, stats, video } = tweet;
 
   const videoEl = document.getElementById('tweet-video');
+  videoEl.style.setProperty('--ratio', video.width / video.height);
   videoEl.poster = mediaUrl(video.thumbnail);
   videoEl.src = mediaUrl(videoUrl);
   document.getElementById('tweet-link').href = tweet.url;
@@ -104,7 +107,8 @@ function renderTweet(tweet, videoUrl) {
   }
   document.getElementById('tweet-meta').textContent = meta.join(' · ');
 
-  tweetEl.hidden = false;
+  tweetLayoutEl.hidden = false;
+  showComments(commentsEl, tweet.id, tweet.url);
 }
 
 function showError(message) {
