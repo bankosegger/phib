@@ -6,6 +6,7 @@ const shortLinkEl = document.getElementById('short-link');
 const copyBtn = document.getElementById('copy-btn');
 const historyEl = document.getElementById('history');
 const twitterVideoEl = document.getElementById('twitter-video');
+const tweetEl = document.getElementById('tweet');
 
 const HISTORY_KEY = 'phib-history';
 const TWITTER_VIDEO_KEY = 'phib-twitter-video';
@@ -54,10 +55,57 @@ function renderHistory() {
   }
 }
 
+function formatCount(n) {
+  return new Intl.NumberFormat('en', { notation: 'compact' }).format(n);
+}
+
+function hideTweet() {
+  const videoEl = document.getElementById('tweet-video');
+  videoEl.pause();
+  videoEl.removeAttribute('src');
+  videoEl.load();
+  tweetEl.hidden = true;
+}
+
+function renderTweet(tweet, videoUrl) {
+  if (!tweet) {
+    hideTweet();
+    return;
+  }
+  const { author, stats, video } = tweet;
+
+  const videoEl = document.getElementById('tweet-video');
+  videoEl.poster = video.thumbnail;
+  videoEl.src = videoUrl;
+  document.getElementById('tweet-link').href = tweet.url;
+
+  document.getElementById('tweet-avatar').src = author.avatar;
+  const nameEl = document.getElementById('tweet-name');
+  nameEl.href = author.url;
+  nameEl.textContent = author.name;
+  document.getElementById('tweet-handle').textContent = `@${author.handle}`;
+
+  document.getElementById('tweet-text').textContent = tweet.text;
+
+  const meta = [
+    new Date(tweet.createdAt).toLocaleDateString(undefined, { dateStyle: 'medium' }),
+    `${video.width}×${video.height}`,
+    `${formatCount(stats.likes)} likes`,
+    `${formatCount(stats.retweets)} reposts`,
+  ];
+  if (stats.views != null) {
+    meta.push(`${formatCount(stats.views)} views`);
+  }
+  document.getElementById('tweet-meta').textContent = meta.join(' · ');
+
+  tweetEl.hidden = false;
+}
+
 function showError(message) {
   errorEl.textContent = message;
   errorEl.hidden = false;
   resultEl.hidden = true;
+  hideTweet();
 }
 
 function showResult(data) {
@@ -65,9 +113,10 @@ function showResult(data) {
   shortLinkEl.href = data.shortUrl;
   shortLinkEl.textContent = data.shortUrl;
   resultEl.hidden = false;
+  renderTweet(data.tweet, data.target);
 
   const items = loadHistory();
-  items.unshift(data);
+  items.unshift({ code: data.code, shortUrl: data.shortUrl, target: data.target });
   saveHistory(items);
   renderHistory();
 }

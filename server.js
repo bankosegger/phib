@@ -5,6 +5,7 @@ const express = require('express');
 const { nanoid } = require('nanoid');
 const redis = require('./lib/redis');
 const { parseStatus, resolveTwitterVideo, TwitterError } = require('./lib/twitter');
+const { renderWatchPage } = require('./lib/watch');
 
 const PORT = process.env.PORT || 3000;
 const SHORT_DOMAIN = process.env.SHORT_DOMAIN;
@@ -34,10 +35,10 @@ function parseRecord(record) {
   return typeof record === 'string' ? JSON.parse(record) : record;
 }
 
-async function claimCode(code, target) {
+async function claimCode(code, target, tweet) {
   const claimed = await redis.set(
     `url:${code}`,
-    { target, createdAt: new Date().toISOString() },
+    { target, createdAt: new Date().toISOString(), tweet },
     { nx: true }
   );
   return claimed === 'OK';
@@ -57,15 +58,16 @@ app.post('/api/shorten', async (req, res) => {
   try {
     const source = url;
     const status = twitterVideo === true ? parseStatus(url) : null;
+    let tweet;
     if (status) {
-      url = await resolveTwitterVideo(status);
+      ({ url, tweet } = await resolveTwitterVideo(status));
     }
 
     let code;
 
     for (let attempts = 0; attempts < 5 && !code; attempts++) {
       const candidate = nanoid(6);
-      if (await claimCode(candidate, url)) {
+      if (await claimCode(candidate, url, tweet)) {
         code = candidate;
       }
     }
@@ -78,6 +80,7 @@ app.post('/api/shorten', async (req, res) => {
       shortUrl: `https://${SHORT_DOMAIN}/${code}`,
       target: url,
       source,
+      tweet,
     });
   } catch (err) {
     if (err instanceof TwitterError) {
@@ -109,8 +112,11 @@ app.get('/:code', async (req, res, next) => {
     if (!record) {
       return next();
     }
-    const { target } = parseRecord(record);
+    const { target, tweet } = parseRecord(record);
     redis.incr(`clicks:${req.params.code}`).catch((err) => console.error(err));
+    if (tweet) {
+      return res.send(renderWatchPage({ target, tweet }));
+    }
     // Hosts like video.twimg.com reject requests whose Referer is another site.
     res.set('Referrer-Policy', 'no-referrer');
     res.redirect(target);

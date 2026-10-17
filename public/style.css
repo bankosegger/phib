@@ -187,6 +187,89 @@ form {
   transform: translateX(-50%) translateY(0);
 }
 
+.tweet {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background: var(--banko-sand);
+  box-shadow: var(--banko-hairline);
+  border-radius: 6px;
+}
+
+.tweet-video {
+  display: block;
+  width: 100%;
+  max-height: 420px;
+  margin-bottom: 0.75rem;
+  background: #000;
+  border-radius: 4px;
+}
+
+.tweet-author {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.tweet-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.tweet-name {
+  display: block;
+  color: var(--banko-ink);
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 0.8125rem;
+  line-height: 1.2;
+}
+
+.tweet-name:hover {
+  text-decoration: underline;
+}
+
+.tweet-handle {
+  color: var(--banko-muted);
+  font-size: 0.75rem;
+}
+
+.tweet-text {
+  margin: 0.625rem 0 0;
+  font-size: 0.8125rem;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.tweet-meta {
+  margin: 0.5rem 0 0;
+  color: var(--banko-muted);
+  font-size: 0.75rem;
+}
+
+.tweet-meta a {
+  color: var(--banko-muted);
+}
+
+.tweet-meta a:hover {
+  color: var(--banko-ink);
+}
+
+.watch-home {
+  margin: 1rem 0 0;
+  text-align: center;
+  font-size: 0.75rem;
+}
+
+.watch-home a {
+  color: var(--banko-muted);
+}
+
+.watch-home a:hover {
+  color: var(--banko-ink);
+}
+
 .history {
   list-style: none;
   padding: 0;

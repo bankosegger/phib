@@ -4,6 +4,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <!-- video.twimg.com rejects requests with a Referer from another site -->
+  <meta name="referrer" content="no-referrer" />
   <title>phib — shorter urls</title>
   <meta name="description" content="Paste a long URL and get a short link back, instantly." />
   <meta property="og:type" content="website" />
@@ -54,6 +56,22 @@
           <polyline points="20 6 9 17 4 12" />
         </svg>
       </button>
+    </div>
+
+    <div id="tweet" class="tweet" hidden>
+      <video id="tweet-video" class="tweet-video" controls playsinline preload="metadata"></video>
+      <div class="tweet-author">
+        <img id="tweet-avatar" class="tweet-avatar" alt="" referrerpolicy="no-referrer" />
+        <div>
+          <a id="tweet-name" class="tweet-name" target="_blank" rel="noopener"></a>
+          <span id="tweet-handle" class="tweet-handle"></span>
+        </div>
+      </div>
+      <p id="tweet-text" class="tweet-text"></p>
+      <p class="tweet-meta">
+        <span id="tweet-meta"></span> ·
+        <a id="tweet-link" target="_blank" rel="noopener">View post</a>
+      </p>
     </div>
 
     <ul id="history" class="history"></ul>
