@@ -74,7 +74,7 @@ function saveHistory(items) {
 
 function deleteHistory() {
   localStorage.removeItem(HISTORY_KEY);
-  loadHistory();
+  renderHistory();
 }
 
 const LINK_ICON =
@@ -94,6 +94,7 @@ function describeTarget(item) {
 function renderHistory() {
   const items = loadHistory();
   historyEl.innerHTML = '';
+  clearBtn.hidden = items.length === 0;
   for (const item of items) {
     const li = document.createElement('li');
 
