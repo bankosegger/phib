@@ -143,7 +143,9 @@ input[disabled] {
   cursor: not-allowed;
 }
 
-input[type="url"] {
+input[type="url"],
+input[type="password"],
+input[type="search"] {
   background: var(--phib-canvas);
   border: 1px solid var(--phib-stone);
   color: var(--phib-ink);
@@ -709,4 +711,126 @@ form {
   margin: 0.5rem 0 0 auto;
   padding: 4px 12px;
   font-size: 0.75rem;
+}
+
+/* Admin ------------------------------------------------------------------ */
+
+.card.admin {
+  max-width: 1000px;
+}
+
+.admin-stats {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0 0 1rem;
+}
+
+.admin-stat {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  background: var(--phib-box);
+  box-shadow: inset 0 0 0 1px var(--phib-box-line);
+  color: var(--phib-muted);
+  font-size: 0.8125rem;
+}
+
+.admin-stat span {
+  display: block;
+  color: var(--phib-ink);
+  font-size: 1.5rem;
+  font-weight: 800;
+}
+
+.admin-tools {
+  margin-bottom: 0.75rem;
+}
+
+.admin-tools input {
+  flex: 1;
+  min-width: 0;
+}
+
+.admin-table-wrap {
+  overflow-x: auto;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.admin-table th,
+.admin-table td {
+  padding: 0.5rem 0.625rem;
+  text-align: left;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--phib-box-line);
+}
+
+.admin-table th {
+  color: var(--phib-muted);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.admin-table .num {
+  text-align: right;
+}
+
+.admin-target {
+  max-width: 420px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.admin-target a {
+  color: var(--phib-ink);
+}
+
+.admin-muted {
+  color: var(--phib-muted);
+}
+
+.sort-btn {
+  padding: 0;
+  background: none;
+  box-shadow: none;
+  font: inherit;
+  color: inherit;
+  border-radius: 0;
+}
+
+.sort-btn:hover {
+  background: none;
+}
+
+.sort-btn[data-active="asc"]::after {
+  content: " ↑";
+}
+
+.sort-btn[data-active="desc"]::after {
+  content: " ↓";
+}
+
+.delete-btn {
+  padding: 4px 10px;
+  font-size: 0.8125rem;
+}
+
+.delete-btn:hover {
+  color: var(--phib-error);
+}
+
+.admin-empty {
+  margin-top: 1rem;
+  color: var(--phib-muted);
+  font-size: 0.875rem;
+}
+
+@media (max-width: 520px) {
+  .admin-stats {
+    flex-direction: column;
+  }
 }

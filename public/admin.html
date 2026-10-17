@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="robots" content="noindex, nofollow" />
+  <meta name="referrer" content="no-referrer" />
+
+  <title>phib — admin</title>
+  <link rel="icon" type="image/png" sizes="96x96" href="/favicons/favicon-96x96.png" />
+  <link rel="icon" type="image/svg+xml" href="/favicons/favicon.svg" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+
+<body>
+  <main class="card admin">
+    <h1>Phib admin</h1>
+    <p class="subtitle">All short links and their clicks.</p>
+
+    <form id="login-form">
+      <div class="row">
+        <input type="password" id="token-input" placeholder="Admin token" autocomplete="current-password" required />
+        <button type="submit">Sign in</button>
+      </div>
+    </form>
+
+    <p id="error" class="error" hidden></p>
+
+    <section id="dashboard" hidden>
+      <div class="admin-stats">
+        <div class="admin-stat"><span id="stat-links">0</span>links</div>
+        <div class="admin-stat"><span id="stat-clicks">0</span>clicks</div>
+        <div class="admin-stat"><span id="stat-unclicked">0</span>never clicked</div>
+      </div>
+
+      <div class="row admin-tools">
+        <input type="search" id="filter-input" placeholder="Filter by code or target" />
+        <button type="button" id="refresh-btn">Refresh</button>
+        <button type="button" id="logout-btn">Sign out</button>
+      </div>
+
+      <div class="admin-table-wrap">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th><button type="button" class="sort-btn" data-sort="code">Link</button></th>
+              <th>Target</th>
+              <th><button type="button" class="sort-btn" data-sort="createdAt">Created</button></th>
+              <th class="num"><button type="button" class="sort-btn" data-sort="clicks">Clicks</button></th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="links-body"></tbody>
+        </table>
+      </div>
+      <p id="empty" class="admin-empty" hidden>No links found.</p>
+    </section>
+  </main>
+
+  <script src="admin.js"></script>
+</body>
+
+</html>

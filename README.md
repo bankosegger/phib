@@ -5,7 +5,7 @@ Minimal URL shortener built on Express and Upstash Redis. Runs on Vercel.
 ## Setup
 
 ```sh
-cp .env.example .env   # fill in Upstash credentials and SHORT_DOMAIN
+cp .env.example .env   # fill in Upstash credentials, SHORT_DOMAIN and ADMIN_TOKEN
 npm install
 npm start              # http://localhost:3000
 ```
@@ -17,3 +17,10 @@ npm start              # http://localhost:3000
 - With `"twitterVideo": true`, Twitter/X status links are resolved to the direct `video.twimg.com` file via the [FxTwitter API](https://github.com/FxEmbed/FxEmbed) before shortening; the response also includes `source` and a `tweet` object (author, text, stats, video thumbnail/duration/size)
 - `GET /api/stats/:code` returns `{ code, target, createdAt, clicks }`
 - `GET /:code` redirects to the target URL; Twitter video links open a watch page with the video and tweet details instead
+
+## Admin
+
+`/admin` lists every short link with its target, creation date and click count, and can delete links. Sign in with the `ADMIN_TOKEN` environment variable; leaving it unset disables the dashboard. The page uses these endpoints, which expect an `Authorization: Bearer <ADMIN_TOKEN>` header:
+
+- `GET /api/admin/links` returns `{ links: [{ code, shortUrl, target, createdAt, clicks, tweet }] }`
+- `DELETE /api/admin/links/:code` deletes a link and its click count

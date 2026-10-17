@@ -1,6 +1,7 @@
 require('dotenv').config();
 
 const path = require('path');
+const crypto = require('crypto');
 const express = require('express');
 const { nanoid } = require('nanoid');
 const redis = require('./lib/redis');
@@ -12,6 +13,8 @@ const PORT = process.env.PORT || 3000;
 // Vercel caps function responses at 4.5 MB, so video is served in ranges up to this size.
 const MEDIA_CHUNK = 4 * 1024 * 1024;
 const SHORT_DOMAIN = process.env.SHORT_DOMAIN;
+// Leaving ADMIN_TOKEN unset disables the admin dashboard.
+const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
 
 if (!SHORT_DOMAIN) {
   throw new Error('Missing SHORT_DOMAIN environment variable.');
@@ -86,23 +89,24 @@ app.post('/api/shorten', async (req, res) => {
       tweet,
     });
   } catch (err) {
+    console.error(err);
+    
     if (err instanceof TwitterError) {
       return res.status(400).json({ error: err.message });
     }
-    console.error(err);
+    
     res.status(500).json({ error: 'Something went wrong. Please try again.' });
   }
 });
 
 app.get('/api/stats/:code', async (req, res) => {
   try {
-    const record = await redis.get(`url:${req.params.code}`);
+    const [record, clicks] = await redis.mget(`url:${req.params.code}`, `clicks:${req.params.code}`);
     if (!record) {
       return res.status(404).json({ error: 'Short URL not found.' });
     }
     const { target, createdAt } = parseRecord(record);
-    const clicks = (await redis.get(`clicks:${req.params.code}`)) || 0;
-    res.json({ code: req.params.code, target, createdAt, clicks: Number(clicks) });
+    res.json({ code: req.params.code, target, createdAt, clicks: Number(clicks) || 0 });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Something went wrong.' });
@@ -150,6 +154,71 @@ app.get('/api', (req, res) => {
   });
 });
 
+function requireAdmin(req, res, next) {
+  const given = Buffer.from((req.get('Authorization') || '').replace(/^Bearer /, ''));
+  const expected = Buffer.from(ADMIN_TOKEN || '');
+  if (!ADMIN_TOKEN || given.length !== expected.length || !crypto.timingSafeEqual(given, expected)) {
+    return res.status(401).json({ error: 'Wrong admin token.' });
+  }
+  next();
+}
+
+async function listCodes() {
+  const codes = [];
+  let cursor = '0';
+  do {
+    const [next, keys] = await redis.scan(cursor, { match: 'url:*', count: 1000 });
+    cursor = String(next);
+    codes.push(...keys.map((key) => key.slice('url:'.length)));
+  } while (cursor !== '0');
+  return codes;
+}
+
+app.get('/api/admin/links', requireAdmin, async (req, res) => {
+  try {
+    const codes = await listCodes();
+    const links = [];
+    // Keeps each Upstash request well under its size limit.
+    for (let i = 0; i < codes.length; i += 500) {
+      const batch = codes.slice(i, i + 500);
+      const values = await redis.mget(...batch.flatMap((code) => [`url:${code}`, `clicks:${code}`]));
+      batch.forEach((code, j) => {
+        const record = values[j * 2];
+        if (!record) {
+          return;
+        }
+        const { target, createdAt, tweet } = parseRecord(record);
+        links.push({
+          code,
+          shortUrl: `https://${SHORT_DOMAIN}/${code}`,
+          target,
+          createdAt,
+          clicks: Number(values[j * 2 + 1]) || 0,
+          tweet: tweet ? { url: tweet.url, handle: tweet.author.handle, text: tweet.text } : null,
+        });
+      });
+    }
+    links.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+    res.json({ links });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Something went wrong.' });
+  }
+});
+
+app.delete('/api/admin/links/:code', requireAdmin, async (req, res) => {
+  try {
+    const removed = await redis.del(`url:${req.params.code}`, `clicks:${req.params.code}`);
+    if (!removed) {
+      return res.status(404).json({ error: 'Short URL not found.' });
+    }
+    res.status(204).end();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Something went wrong.' });
+  }
+});
+
 app.all('/api/*', (req, res) => {
   res.status(404).json({ error: 'Unknown API endpoint. See /api for the list.' });
 });
@@ -192,6 +261,10 @@ app.get('/media', async (req, res, next) => {
   }
 });
 
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
+
 app.get('/:code', async (req, res, next) => {
   try {
     const record = await redis.get(`url:${req.params.code}`);
@@ -199,7 +272,8 @@ app.get('/:code', async (req, res, next) => {
       return next();
     }
     const { target, tweet } = parseRecord(record);
-    redis.incr(`clicks:${req.params.code}`).catch((err) => console.error(err));
+    // Awaited because Vercel can freeze the function as soon as the response is sent.
+    await redis.incr(`clicks:${req.params.code}`).catch((err) => console.error(err));
     if (tweet) {
       return res.send(renderWatchPage({ target, tweet }));
     }
