@@ -59,6 +59,12 @@ function formatCount(n) {
   return new Intl.NumberFormat('en', { notation: 'compact' }).format(n);
 }
 
+// twimg.com is blocked as a third-party tracker by Firefox strict mode and many
+// content blockers, so Twitter media is loaded through phib's /media proxy.
+function mediaUrl(value) {
+  return `/media?url=${encodeURIComponent(value)}`;
+}
+
 function hideTweet() {
   const videoEl = document.getElementById('tweet-video');
   videoEl.pause();
@@ -75,11 +81,11 @@ function renderTweet(tweet, videoUrl) {
   const { author, stats, video } = tweet;
 
   const videoEl = document.getElementById('tweet-video');
-  videoEl.poster = video.thumbnail;
-  videoEl.src = videoUrl;
+  videoEl.poster = mediaUrl(video.thumbnail);
+  videoEl.src = mediaUrl(videoUrl);
   document.getElementById('tweet-link').href = tweet.url;
 
-  document.getElementById('tweet-avatar').src = author.avatar;
+  document.getElementById('tweet-avatar').src = mediaUrl(author.avatar);
   const nameEl = document.getElementById('tweet-name');
   nameEl.href = author.url;
   nameEl.textContent = author.name;

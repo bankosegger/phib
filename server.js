@@ -4,10 +4,13 @@ const path = require('path');
 const express = require('express');
 const { nanoid } = require('nanoid');
 const redis = require('./lib/redis');
-const { parseStatus, resolveTwitterVideo, TwitterError } = require('./lib/twitter');
+const { Readable } = require('stream');
+const { parseStatus, resolveTwitterVideo, TwitterError, isTwimg } = require('./lib/twitter');
 const { renderWatchPage } = require('./lib/watch');
 
 const PORT = process.env.PORT || 3000;
+// Vercel caps function responses at 4.5 MB, so video is served in ranges up to this size.
+const MEDIA_CHUNK = 4 * 1024 * 1024;
 const SHORT_DOMAIN = process.env.SHORT_DOMAIN;
 
 if (!SHORT_DOMAIN) {
@@ -103,6 +106,44 @@ app.get('/api/stats/:code', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Something went wrong.' });
+  }
+});
+
+app.get('/media', async (req, res, next) => {
+  const { url } = req.query;
+  let valid = false;
+  try {
+    valid = typeof url === 'string' && isTwimg(url);
+  } catch {}
+  if (!valid) {
+    return res.status(400).json({ error: 'Only Twitter media can be loaded.' });
+  }
+
+  const headers = {};
+  const range = /^bytes=(\d+)-(\d*)$/.exec(req.get('Range') || '');
+  if (range) {
+    const start = Number(range[1]);
+    const maxEnd = start + MEDIA_CHUNK - 1;
+    const end = range[2] ? Math.min(Number(range[2]), maxEnd) : maxEnd;
+    headers.Range = `bytes=${start}-${end}`;
+  }
+
+  try {
+    const upstream = await fetch(url, { headers });
+    res.status(upstream.status);
+    for (const name of ['content-type', 'content-length', 'content-range', 'accept-ranges', 'last-modified', 'etag']) {
+      const value = upstream.headers.get(name);
+      if (value) {
+        res.set(name, value);
+      }
+    }
+    res.set('Cache-Control', 'public, max-age=86400');
+    if (!upstream.body) {
+      return res.end();
+    }
+    Readable.fromWeb(upstream.body).on('error', next).pipe(res);
+  } catch (err) {
+    next(err);
   }
 });
 
