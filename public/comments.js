@@ -5,7 +5,8 @@ function commentsMediaUrl(value) {
   return `/media?url=${encodeURIComponent(value)}`;
 }
 
-function formatCommentDate(iso) {
+// Short relative time ("5m", "3h", "2d"), or the date once it's over a week old.
+function formatTimeAgo(iso) {
   const seconds = (Date.now() - new Date(iso)) / 1000;
   if (seconds < 3600) return `${Math.max(1, Math.round(seconds / 60))}m`;
   if (seconds < 86400) return `${Math.round(seconds / 3600)}h`;
@@ -35,7 +36,7 @@ function renderComment(reply) {
   name.textContent = reply.author.name;
   const handle = document.createElement('span');
   handle.className = 'comment-handle';
-  handle.textContent = `@${reply.author.handle} · ${formatCommentDate(reply.createdAt)}`;
+  handle.textContent = `@${reply.author.handle} · ${formatTimeAgo(reply.createdAt)}`;
   head.append(name, handle);
 
   const text = document.createElement('p');

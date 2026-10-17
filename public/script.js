@@ -4,12 +4,55 @@ const errorEl = document.getElementById('error');
 const resultEl = document.getElementById('result');
 const shortLinkEl = document.getElementById('short-link');
 const copyBtn = document.getElementById('copy-btn');
+const clearBtn = document.getElementById('clear-btn');
 const historyEl = document.getElementById('history');
 const twitterVideoEl = document.getElementById('twitter-video');
 const tweetLayoutEl = document.getElementById('tweet-layout');
 const commentsEl = document.getElementById('comments');
 
 const HISTORY_KEY = 'phib-history';
+const QUOTE_KEY = 'phib-quote';
+
+const QUOTES = [
+  'Long story short.',
+  'Brevity is the soul of wit. This is very witty.',
+  'Your URL called. It wants to lose some weight.',
+  'Cutting links since… just now.',
+  'Less is more. Shorter is morer.',
+  'Fewer characters, same destination.',
+  'Like a haircut, but for links.',
+  'Every link deserves a fresh start.',
+  'We put your URL on a diet.',
+  "I would have written a shorter link, but I didn't have the time.",
+  'Small link, big energy.',
+  'Tiny link. Huge vibes.',
+  'Making the internet slightly less long.',
+  'Your link, now in travel size.',
+  'Same link, fewer letters, zero regrets.',
+  'Fun size URLs.',
+  'Shrinking links, not expectations.',
+  'Short links. Tall tales.',
+  "It's not the size of the link, it's where it takes you.",
+  'Proudly removing characters nobody will miss.',
+  'Now with 100% less scrolling.',
+  'The shortest distance between two points is this link.',
+  'Pocket-sized URLs for big ideas.',
+  'Keep calm and shorten on.',
+];
+
+// Shows a random quote under the title, never the same one twice in a row.
+function showQuote() {
+  const stored = localStorage.getItem(QUOTE_KEY);
+  const last = stored === null ? -1 : Number(stored);
+  let index = Math.floor(Math.random() * QUOTES.length);
+  if (index === last) {
+    index = (index + 1) % QUOTES.length;
+  }
+  localStorage.setItem(QUOTE_KEY, index);
+  document.querySelector('.card > .subtitle').textContent = QUOTES[index];
+}
+
+showQuote();
 const TWITTER_VIDEO_KEY = 'phib-twitter-video';
 
 twitterVideoEl.checked = localStorage.getItem(TWITTER_VIDEO_KEY) === 'true';
@@ -29,29 +72,72 @@ function saveHistory(items) {
   localStorage.setItem(HISTORY_KEY, JSON.stringify(items.slice(0, 10)));
 }
 
+function deleteHistory() {
+  localStorage.removeItem(HISTORY_KEY);
+  loadHistory();
+}
+
+const LINK_ICON =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+  '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />' +
+  '<path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>';
+
+// What a history entry points to: the tweet for Twitter videos, otherwise the
+// target address without its protocol.
+function describeTarget(item) {
+  if (item.tweet) {
+    return `@${item.tweet.handle}: ${item.tweet.text}`;
+  }
+  return (item.source || item.target).replace(/^https?:\/\/(www\.)?/, '');
+}
+
 function renderHistory() {
   const items = loadHistory();
   historyEl.innerHTML = '';
   for (const item of items) {
     const li = document.createElement('li');
 
+    const thumb = document.createElement('div');
+    thumb.className = 'history-thumb';
+    if (item.tweet && item.tweet.thumbnail) {
+      const img = document.createElement('img');
+      img.src = mediaUrl(item.tweet.thumbnail);
+      img.alt = '';
+      // Thumbnails disappear when a tweet is deleted.
+      img.onerror = () => {
+        thumb.innerHTML = LINK_ICON;
+      };
+      thumb.appendChild(img);
+    } else {
+      thumb.innerHTML = LINK_ICON;
+    }
+
+    const body = document.createElement('div');
+    body.className = 'history-body';
+
+    const head = document.createElement('div');
+    head.className = 'history-head';
     const a = document.createElement('a');
     a.href = item.shortUrl;
     a.target = '_blank';
     a.rel = 'noopener';
     a.textContent = item.shortUrl.replace(/^https?:\/\//, '');
+    head.appendChild(a);
+    if (item.createdAt) {
+      const time = document.createElement('span');
+      time.className = 'history-time';
+      time.textContent = formatTimeAgo(item.createdAt);
+      time.title = new Date(item.createdAt).toLocaleString();
+      head.appendChild(time);
+    }
 
     const target = document.createElement('span');
     target.className = 'target';
-    target.title = item.target;
-    try {
-      target.textContent = new URL(item.target).hostname.replace(/^www\./, '');
-    } catch {
-      target.textContent = item.target;
-    }
+    target.textContent = describeTarget(item);
+    target.title = item.source && item.source !== item.target ? `${item.source}\n→ ${item.target}` : item.target;
 
-    li.appendChild(a);
-    li.appendChild(target);
+    body.append(head, target);
+    li.append(thumb, body);
     historyEl.appendChild(li);
   }
 }
@@ -126,7 +212,18 @@ function showResult(data) {
   renderTweet(data.tweet, data.target);
 
   const items = loadHistory();
-  items.unshift({ code: data.code, shortUrl: data.shortUrl, target: data.target });
+  items.unshift({
+    code: data.code,
+    shortUrl: data.shortUrl,
+    target: data.target,
+    source: data.source,
+    createdAt: new Date().toISOString(),
+    tweet: data.tweet && {
+      handle: data.tweet.author.handle,
+      text: data.tweet.text.slice(0, 140),
+      thumbnail: data.tweet.video.thumbnail,
+    },
+  });
   saveHistory(items);
   renderHistory();
 }
@@ -168,6 +265,14 @@ copyBtn.addEventListener('click', async () => {
     }, 1500);
   } catch {
     copyBtn.setAttribute('aria-label', 'Copy failed');
+  }
+});
+
+clearBtn.addEventListener('click', async () => {
+  try {
+    deleteHistory();
+  } catch {
+    console.error('failed to clear history.')
   }
 });
 

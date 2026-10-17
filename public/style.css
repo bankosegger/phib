@@ -1,12 +1,209 @@
-/* Phib overrides — layers on top of https://bankosegger.me/banko.css,
- * which provides the --banko-* tokens, fonts, and base element styles. */
+/* Phib styles. The base element styles and tokens come from the
+ * bankosegger.me look (banko.css), copied here so phib has no external CSS. */
+
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  src: url("/fonts/PlusJakartaSans-Variable.woff2") format("woff2-variations");
+  font-weight: 200 800;
+  font-style: normal;
+  font-display: swap;
+}
 
 :root {
+  --phib-canvas: #1c1c1c;
+  --phib-stone: #312c28;
+  --phib-sand: #25221f;
+  --phib-ink: #f5f3f0;
+  --phib-muted: #ada59c;
+  --phib-linen: #3d3732;
+  --phib-accent: #f2884b;
   --phib-error: #ff6b5e;
   /* Neutral grey boxes for the short link, video and replies. */
   --phib-box: #242424;
   --phib-box-line: #303030;
+
+  --phib-font: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell,
+    "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+  --phib-hairline: inset 0 0 0 1px var(--phib-stone);
+  --phib-ease: cubic-bezier(0.2, 0, 0, 1);
+
+  color-scheme: dark;
 }
+
+/* Base ------------------------------------------------------------------- */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  scrollbar-width: thin;
+  scrollbar-color: var(--phib-linen) transparent;
+}
+
+body {
+  margin: 0;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100dvh;
+  background: var(--phib-canvas);
+  color: var(--phib-ink);
+  font-family: var(--phib-font);
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.55;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "calt", "rlig";
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: #f2884b33;
+}
+
+:focus-visible {
+  outline: 1.5px solid var(--phib-accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+h1,
+h2 {
+  color: var(--phib-ink);
+  font-weight: 700;
+  letter-spacing: -0.006em;
+  line-height: 1.25;
+}
+
+h1 {
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  margin: 2.5rem 0 1rem;
+}
+
+p {
+  margin: 0 0 1.25em;
+}
+
+a {
+  color: var(--phib-accent);
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+img,
+video,
+svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Forms ------------------------------------------------------------------ */
+
+button {
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--phib-canvas);
+  border: 0;
+  box-shadow: var(--phib-hairline);
+  color: var(--phib-muted);
+  font: 700 0.91rem/1.2 var(--phib-font);
+  padding: 7px 14px;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition:
+    transform 0.14s var(--phib-ease),
+    background 0.16s ease,
+    color 0.16s ease;
+}
+
+button:hover {
+  background: var(--phib-sand);
+  color: var(--phib-ink);
+}
+
+button:active {
+  transform: scale(0.96);
+}
+
+button[disabled],
+input[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+input[type="url"] {
+  background: var(--phib-canvas);
+  border: 1px solid var(--phib-stone);
+  color: var(--phib-ink);
+  font-family: var(--phib-font);
+  font-size: 0.945rem;
+  padding: 8px 12px;
+  border-radius: 4px;
+  min-height: 34px;
+  transition: border-color 0.16s ease;
+}
+
+input:focus {
+  outline: none;
+  border-color: var(--phib-accent);
+}
+
+input[type="checkbox"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--phib-stone);
+  border-radius: 6px;
+  background: var(--phib-canvas);
+  display: inline-grid;
+  place-items: center;
+  vertical-align: middle;
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease;
+}
+
+input[type="checkbox"]:checked {
+  background: var(--phib-accent);
+  border-color: var(--phib-accent);
+}
+
+input[type="checkbox"]:checked::after {
+  content: "✓";
+  color: #fff;
+  font-size: 0.84rem;
+  line-height: 1;
+}
+
+label {
+  color: var(--phib-muted);
+  font-size: 0.875rem;
+}
+
+/* 16px keeps iOS Safari from zooming in when a field gains focus. */
+@media (max-width: 685px) {
+  input {
+    font-size: 16px;
+  }
+}
+
+/* Phib ------------------------------------------------------------------- */
 
 .result,
 .tweet,
@@ -16,13 +213,6 @@
   border-radius: 8px;
 }
 
-body {
-  max-width: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 100dvh;
-}
 
 [hidden] {
   display: none !important;
@@ -39,16 +229,15 @@ body {
 
 .card h1 {
   margin: 0 0 0.4rem;
-  font-family: var(--banko-font);
 }
 
 .dot {
-  color: var(--banko-accent);
+  color: var(--phib-accent);
 }
 
 .subtitle {
   margin: 0 0 1.5rem;
-  color: var(--banko-muted);
+  color: var(--phib-muted);
   font-size: 0.875rem;
 }
 
@@ -73,7 +262,7 @@ form {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  color: var(--banko-muted);
+  color: var(--phib-muted);
   font-size: 0.8125rem;
   cursor: pointer;
 }
@@ -94,7 +283,7 @@ form {
 
 .result a {
   flex: 1;
-  color: var(--banko-ink);
+  color: var(--phib-ink);
   text-decoration: none;
   font-weight: 600;
   font-size: 0.875rem;
@@ -117,15 +306,15 @@ form {
   padding: 0;
   flex-shrink: 0;
   background: transparent;
-  box-shadow: var(--banko-hairline);
-  color: var(--banko-muted);
+  box-shadow: var(--phib-hairline);
+  color: var(--phib-muted);
   transition: box-shadow 0.15s ease, transform 0.1s ease, color 0.15s ease;
 }
 
 .copy-btn:hover {
   background: transparent;
-  box-shadow: inset 0 0 0 1px var(--banko-muted);
-  color: var(--banko-ink);
+  box-shadow: inset 0 0 0 1px var(--phib-muted);
+  color: var(--phib-ink);
 }
 
 .copy-btn:active {
@@ -139,7 +328,7 @@ form {
 
 .copy-btn .icon-check {
   display: none;
-  color: var(--banko-accent);
+  color: var(--phib-accent);
 }
 
 .copy-btn.copied .icon-copy {
@@ -152,7 +341,7 @@ form {
 }
 
 .copy-btn.copied {
-  box-shadow: inset 0 0 0 1px var(--banko-accent);
+  box-shadow: inset 0 0 0 1px var(--phib-accent);
 }
 
 @keyframes pop {
@@ -175,7 +364,7 @@ form {
   bottom: calc(100% + 8px);
   left: 50%;
   transform: translateX(-50%) translateY(4px);
-  background: var(--banko-accent);
+  background: var(--phib-accent);
   color: #fff;
   font-size: 11px;
   font-weight: 600;
@@ -194,7 +383,7 @@ form {
   left: 50%;
   transform: translateX(-50%);
   border: 4px solid transparent;
-  border-top-color: var(--banko-accent);
+  border-top-color: var(--phib-accent);
 }
 
 .copy-btn.copied .tooltip {
@@ -282,7 +471,7 @@ form {
 
 .tweet-name {
   display: block;
-  color: var(--banko-ink);
+  color: var(--phib-ink);
   text-decoration: none;
   font-weight: 700;
   font-size: 0.8125rem;
@@ -294,7 +483,7 @@ form {
 }
 
 .tweet-handle {
-  color: var(--banko-muted);
+  color: var(--phib-muted);
   font-size: 0.75rem;
 }
 
@@ -307,16 +496,16 @@ form {
 
 .tweet-meta {
   margin: 0.5rem 0 0;
-  color: var(--banko-muted);
+  color: var(--phib-muted);
   font-size: 0.75rem;
 }
 
 .tweet-meta a {
-  color: var(--banko-muted);
+  color: var(--phib-muted);
 }
 
 .tweet-meta a:hover {
-  color: var(--banko-ink);
+  color: var(--phib-ink);
 }
 
 .comments {
@@ -331,7 +520,7 @@ form {
 
 .comments-status {
   margin: 0;
-  color: var(--banko-muted);
+  color: var(--phib-muted);
   font-size: 0.75rem;
 }
 
@@ -374,7 +563,7 @@ form {
 }
 
 .comment-name {
-  color: var(--banko-ink);
+  color: var(--phib-ink);
   text-decoration: none;
   font-weight: 700;
   font-size: 0.75rem;
@@ -389,7 +578,7 @@ form {
 
 .comment-handle,
 .comment-likes {
-  color: var(--banko-muted);
+  color: var(--phib-muted);
   font-size: 0.6875rem;
   white-space: nowrap;
 }
@@ -404,12 +593,12 @@ form {
 .comments-more {
   display: block;
   margin-top: 0.5rem;
-  color: var(--banko-muted);
+  color: var(--phib-muted);
   font-size: 0.75rem;
 }
 
 .comments-more:hover {
-  color: var(--banko-ink);
+  color: var(--phib-ink);
 }
 
 .watch-title {
@@ -418,11 +607,11 @@ form {
 }
 
 .subtitle a {
-  color: var(--banko-muted);
+  color: var(--phib-muted);
 }
 
 .subtitle a:hover {
-  color: var(--banko-ink);
+  color: var(--phib-ink);
 }
 
 .history {
@@ -430,7 +619,7 @@ form {
   padding: 0;
   display: flex;
   flex-direction: column;
-  max-height: 200px;
+  max-height: 340px;
   overflow-y: auto;
   border: none;
 }
@@ -442,10 +631,53 @@ form {
 
 .history li {
   display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.125rem;
+}
+
+.history-thumb {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--phib-box);
+  box-shadow: inset 0 0 0 1px var(--phib-box-line);
+  color: var(--phib-muted);
+}
+
+.history-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.history-thumb svg {
+  width: 16px;
+  height: 16px;
+}
+
+.history-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.history-head {
+  display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 0.75rem;
-  padding: 0.625rem 0.125rem;
+}
+
+.history-time {
+  color: var(--phib-muted);
+  font-size: 0.6875rem;
+  white-space: nowrap;
 }
 
 .history li:last-child {
@@ -453,7 +685,7 @@ form {
 }
 
 .history a {
-  color: var(--banko-ink);
+  color: var(--phib-ink);
   text-decoration: none;
   font-weight: 600;
   font-size: 0.8125rem;
@@ -465,10 +697,16 @@ form {
 }
 
 .history .target {
-  color: var(--banko-muted);
+  color: var(--phib-muted);
   font-size: 0.75rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  text-align: right;
+}
+
+.clear-btn {
+  display: block;
+  margin: 0.5rem 0 0 auto;
+  padding: 4px 12px;
+  font-size: 0.75rem;
 }
