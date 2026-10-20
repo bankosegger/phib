@@ -393,8 +393,8 @@ form {
   transform: translateX(-50%) translateY(0);
 }
 
-/* With a Twitter video showing, the card widens and the replies sit in a
- * column to the right of the video. */
+/* With a tweet showing, the card widens and the replies sit in a
+ * column to the right of the tweet. */
 .card:has(.tweet-layout:not([hidden])) {
   max-width: 1200px;
 }
@@ -456,6 +456,41 @@ form {
   margin: 0 auto 0.75rem;
   background: #000;
   border-radius: 4px;
+}
+
+/* One photo keeps its shape like the video player; several share a grid of
+ * cropped tiles, as on x.com. */
+.tweet-photos {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2px;
+  margin: 0 0 0.75rem;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.tweet-photos[data-count='1'] {
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+}
+
+.tweet-photo {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  background: #000;
+}
+
+/* Tall photos get narrower to stay within 75vh, like the video player. */
+.tweet-photos[data-count='1'] .tweet-photo {
+  aspect-ratio: var(--ratio, 16 / 9);
+  width: min(100%, calc(75vh * var(--ratio, 16 / 9)));
+  border-radius: 4px;
+}
+
+.tweet-photos[data-count='1'] a {
+  display: contents;
 }
 
 .tweet-author {

@@ -84,7 +84,7 @@ const LINK_ICON =
   '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />' +
   '<path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>';
 
-// What a history entry points to: the tweet for Twitter videos, otherwise the
+// What a history entry points to: the tweet for Twitter/X posts, otherwise the
 // target address without its protocol.
 function describeTarget(item) {
   if (item.tweet) {
@@ -155,13 +155,52 @@ function mediaUrl(value) {
   return `/media?url=${encodeURIComponent(value)}`;
 }
 
-function hideTweet() {
+function hideVideo() {
   const videoEl = document.getElementById('tweet-video');
   videoEl.pause();
   videoEl.removeAttribute('src');
   videoEl.load();
+  videoEl.hidden = true;
+}
+
+function hideTweet() {
+  hideVideo();
   tweetLayoutEl.hidden = true;
   clearComments(commentsEl);
+}
+
+// The picture that stands for a tweet in the history.
+function tweetThumbnail(tweet) {
+  if (tweet.video) {
+    return tweet.video.thumbnail;
+  }
+  if (tweet.photos) {
+    return tweet.photos[0].url;
+  }
+  return tweet.author.avatar;
+}
+
+function renderPhotos(photos) {
+  const photosEl = document.getElementById('tweet-photos');
+  photosEl.innerHTML = '';
+  photosEl.hidden = !photos;
+  if (!photos) {
+    return;
+  }
+  photosEl.dataset.count = photos.length;
+  for (const photo of photos) {
+    const a = document.createElement('a');
+    a.href = mediaUrl(photo.url);
+    a.target = '_blank';
+    a.rel = 'noopener';
+    const img = document.createElement('img');
+    img.className = 'tweet-photo';
+    img.style.setProperty('--ratio', photo.width / photo.height);
+    img.src = mediaUrl(photo.url);
+    img.alt = '';
+    a.appendChild(img);
+    photosEl.appendChild(a);
+  }
 }
 
 function renderTweet(tweet, videoUrl) {
@@ -171,10 +210,16 @@ function renderTweet(tweet, videoUrl) {
   }
   const { author, stats, video } = tweet;
 
-  const videoEl = document.getElementById('tweet-video');
-  videoEl.style.setProperty('--ratio', video.width / video.height);
-  videoEl.poster = mediaUrl(video.thumbnail);
-  videoEl.src = mediaUrl(videoUrl);
+  if (video) {
+    const videoEl = document.getElementById('tweet-video');
+    videoEl.style.setProperty('--ratio', video.width / video.height);
+    videoEl.poster = mediaUrl(video.thumbnail);
+    videoEl.src = mediaUrl(videoUrl);
+    videoEl.hidden = false;
+  } else {
+    hideVideo();
+  }
+  renderPhotos(tweet.photos);
   document.getElementById('tweet-link').href = tweet.url;
 
   document.getElementById('tweet-avatar').src = mediaUrl(author.avatar);
@@ -185,12 +230,11 @@ function renderTweet(tweet, videoUrl) {
 
   document.getElementById('tweet-text').textContent = tweet.text;
 
-  const meta = [
-    new Date(tweet.createdAt).toLocaleDateString(undefined, { dateStyle: 'medium' }),
-    `${video.width}×${video.height}`,
-    `${formatCount(stats.likes)} likes`,
-    `${formatCount(stats.retweets)} reposts`,
-  ];
+  const meta = [new Date(tweet.createdAt).toLocaleDateString(undefined, { dateStyle: 'medium' })];
+  if (video) {
+    meta.push(`${video.width}×${video.height}`);
+  }
+  meta.push(`${formatCount(stats.likes)} likes`, `${formatCount(stats.retweets)} reposts`);
   if (stats.views != null) {
     meta.push(`${formatCount(stats.views)} views`);
   }
@@ -224,7 +268,7 @@ function showResult(data) {
     tweet: data.tweet && {
       handle: data.tweet.author.handle,
       text: data.tweet.text.slice(0, 140),
-      thumbnail: data.tweet.video.thumbnail,
+      thumbnail: tweetThumbnail(data.tweet),
     },
   });
   saveHistory(items);

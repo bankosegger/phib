@@ -6,7 +6,7 @@ const express = require('express');
 const { nanoid } = require('nanoid');
 const redis = require('./lib/redis');
 const { Readable } = require('stream');
-const { parseStatus, resolveTwitterVideo, fetchReplies, TwitterError, isTwimg } = require('./lib/twitter');
+const { parseStatus, resolveTweet, fetchReplies, TwitterError, isTwimg } = require('./lib/twitter');
 const { renderWatchPage } = require('./lib/watch');
 
 const PORT = process.env.PORT || 3000;
@@ -66,7 +66,7 @@ app.post('/api/shorten', async (req, res) => {
     const status = twitterVideo === true ? parseStatus(url) : null;
     let tweet;
     if (status) {
-      ({ url, tweet } = await resolveTwitterVideo(status));
+      ({ url, tweet } = await resolveTweet(status));
     }
 
     let code;
@@ -138,7 +138,7 @@ app.get('/api', (req, res) => {
         method: 'POST',
         path: '/api/shorten',
         body: { url: 'https://example.com', twitterVideo: 'optional boolean' },
-        description: 'Shortens a URL. With twitterVideo: true, Twitter/X post links are shortened to their video.',
+        description: 'Shortens a URL. With twitterVideo: true, Twitter/X post links open the post in phib, pointing to its video when it has one.',
       },
       {
         method: 'GET',
