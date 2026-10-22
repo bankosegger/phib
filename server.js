@@ -271,7 +271,7 @@ app.get(/^\/https?:/i, (req, res) => {
 
 // Proxy mode: swapping x.com for the short domain (pb3p.uk/user/status/123) shows
 // the post in phib straight away, without creating a short link.
-app.get(/^\/\w+\/status\/\d+(\/video\/\d+)?\/?$/, async (req, res, next) => {
+app.get(/^\/\w+\/status\/\d+(\/(video|photo)\/\d+)?\/?$/, async (req, res, next) => {
   try {
     const { url, tweet } = await resolveTweet(parseStatus(`https://x.com${req.path}`));
     res.set('Cache-Control', 'public, max-age=300');
