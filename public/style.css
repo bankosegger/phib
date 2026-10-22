@@ -566,22 +566,23 @@ form {
   overflow: hidden;
 }
 
-/* Quoted images are uniform cropped tiles whatever their shape, so a tall
- * photo can't outgrow the quote. */
-.tweet-quote .tweet-photos {
-  margin: 0.5rem 0 0;
-}
-
+/* Quoted images are a row of small square thumbnails whatever their shape;
+ * the quote's own phib page shows them in full. */
+.tweet-quote .tweet-photos,
 .tweet-quote .tweet-photos[data-count='1'] {
-  grid-template-columns: minmax(0, 1fr);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0.5rem 0 0;
+  border-radius: 0;
 }
 
 .tweet-quote .tweet-photo,
 .tweet-quote .tweet-photos[data-count='1'] .tweet-photo {
-  width: 100%;
-  height: 10rem;
-  aspect-ratio: auto;
-  border-radius: 0;
+  width: 4.5rem;
+  height: 4.5rem;
+  aspect-ratio: 1;
+  border-radius: 4px;
 }
 
 .tweet-meta {
