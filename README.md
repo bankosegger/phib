@@ -24,7 +24,7 @@ Put the short domain in front of any link, e.g. `pb3p.uk/https://x.com/mitsuhiko
 
 ## Proxy mode
 
-Replace `x.com` (or `twitter.com`) in a post link with the short domain, e.g. `pb3p.uk/mitsuhiko/status/2113248077532545057`, to see the post in phib without creating a short link. A trailing `/video/N` picks the Nth video.
+Replace `x.com` (or `twitter.com`) in a post link with the short domain, e.g. `pb3p.uk/mitsuhiko/status/2113248077532545057`, to see the post in phib without creating a short link. A trailing `/video/N` picks the Nth video; `/photo/N` links work too and show all photos.
 
 ## Admin
 

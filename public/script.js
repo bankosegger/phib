@@ -203,6 +203,53 @@ function renderPhotos(photos) {
   }
 }
 
+// The quoted post, linking to its own phib page; markup matches lib/watch.js.
+function renderQuote(quote) {
+  const quoteEl = document.getElementById('tweet-quote');
+  quoteEl.innerHTML = '';
+  quoteEl.hidden = !quote;
+  if (!quote) {
+    return;
+  }
+  quoteEl.href = `/${quote.author.handle}/status/${quote.id}`;
+
+  const author = document.createElement('span');
+  author.className = 'tweet-author';
+  const avatar = document.createElement('img');
+  avatar.className = 'tweet-avatar';
+  avatar.src = mediaUrl(quote.author.avatar);
+  avatar.alt = '';
+  const names = document.createElement('span');
+  const name = document.createElement('span');
+  name.className = 'tweet-name';
+  name.textContent = quote.author.name;
+  const handle = document.createElement('span');
+  handle.className = 'tweet-handle';
+  handle.textContent = `@${quote.author.handle}`;
+  names.append(name, handle);
+  author.append(avatar, names);
+
+  const text = document.createElement('span');
+  text.className = 'tweet-text';
+  text.textContent = quote.text;
+  quoteEl.append(author, text);
+
+  if (quote.images) {
+    const images = document.createElement('span');
+    images.className = 'tweet-photos';
+    images.dataset.count = quote.images.length;
+    for (const image of quote.images) {
+      const img = document.createElement('img');
+      img.className = 'tweet-photo';
+      img.style.setProperty('--ratio', image.width / image.height);
+      img.src = mediaUrl(image.url);
+      img.alt = '';
+      images.appendChild(img);
+    }
+    quoteEl.appendChild(images);
+  }
+}
+
 function renderTweet(tweet, videoUrl) {
   if (!tweet) {
     hideTweet();
@@ -229,6 +276,7 @@ function renderTweet(tweet, videoUrl) {
   document.getElementById('tweet-handle').textContent = `@${author.handle}`;
 
   document.getElementById('tweet-text').textContent = tweet.text;
+  renderQuote(tweet.quote);
 
   const meta = [new Date(tweet.createdAt).toLocaleDateString(undefined, { dateStyle: 'medium' })];
   if (video) {
