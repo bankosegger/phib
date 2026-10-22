@@ -18,6 +18,10 @@ npm start              # http://localhost:3000
 - `GET /api/stats/:code` returns `{ code, target, createdAt, clicks }`
 - `GET /:code` redirects to the target URL; Twitter/X links open a page with the post's video or photos and its details instead
 
+## URL mode
+
+Put the short domain in front of any link, e.g. `pb3p.uk/https://x.com/mitsuhiko/status/2113248077532545057`, to open phib with that link shortened. The "Show Twitter/X posts in phib" setting from the home page applies.
+
 ## Admin
 
 `/admin` lists every short link with its target, creation date and click count, and can delete links. Sign in with the `ADMIN_TOKEN` environment variable; leaving it unset disables the dashboard. The page uses these endpoints, which expect an `Authorization: Bearer <ADMIN_TOKEN>` header:

@@ -324,3 +324,12 @@ clearBtn.addEventListener('click', async () => {
 });
 
 renderHistory();
+
+// URL mode: the server sends pb3p.uk/https://... here as /?url=..., which is
+// shortened right away.
+const prefilled = new URLSearchParams(location.search).get('url');
+if (prefilled) {
+  history.replaceState(null, '', '/');
+  urlInput.value = prefilled;
+  form.requestSubmit();
+}

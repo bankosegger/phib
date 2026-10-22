@@ -261,6 +261,14 @@ app.get('/media', async (req, res, next) => {
   }
 });
 
+// URL mode: prefixing a link with the short domain (pb3p.uk/https://...) opens the
+// home page with that link shortened. originalUrl keeps the link's own query string,
+// and proxies may have collapsed the "//" after the scheme.
+app.get(/^\/https?:/i, (req, res) => {
+  const url = req.originalUrl.slice(1).replace(/^(https?):\/*/i, '$1://');
+  res.redirect(`/?url=${encodeURIComponent(url)}`);
+});
+
 app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
