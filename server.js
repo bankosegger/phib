@@ -12,7 +12,9 @@ const { renderWatchPage } = require('./lib/watch');
 const PORT = process.env.PORT || 3000;
 // Vercel caps function responses at 4.5 MB, so video is served in ranges up to this size.
 const MEDIA_CHUNK = 4 * 1024 * 1024;
-const SHORT_DOMAIN = process.env.SHORT_DOMAIN;
+// Tolerates a full URL like https://phib.fyi/ in the env, which would otherwise
+// produce https://https://... short links and break the own-domain check.
+const SHORT_DOMAIN = process.env.SHORT_DOMAIN?.trim().replace(/^https?:\/\//i, '').replace(/\/+$/, '');
 // Leaving ADMIN_TOKEN unset disables the admin dashboard.
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
 
