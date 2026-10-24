@@ -7,7 +7,8 @@ const { nanoid } = require('nanoid');
 const redis = require('./lib/redis');
 const { Readable } = require('stream');
 const { parseStatus, resolveTweet, fetchReplies, TwitterError, isTwimg } = require('./lib/twitter');
-const { renderWatchPage } = require('./lib/watch');
+const { parseVideo, resolveVideo, YouTubeError, VIDEO_ID } = require('./lib/youtube');
+const { renderWatchPage, renderYouTubePage } = require('./lib/watch');
 
 const PORT = process.env.PORT || 3000;
 // Vercel caps function responses at 4.5 MB, so video is served in ranges up to this size.
@@ -43,17 +44,17 @@ function parseRecord(record) {
   return typeof record === 'string' ? JSON.parse(record) : record;
 }
 
-async function claimCode(code, target, tweet) {
+async function claimCode(code, target, tweet, youtube) {
   const claimed = await redis.set(
     `url:${code}`,
-    { target, createdAt: new Date().toISOString(), tweet },
+    { target, createdAt: new Date().toISOString(), tweet, youtube },
     { nx: true }
   );
   return claimed === 'OK';
 }
 
 app.post('/api/shorten', async (req, res) => {
-  let { url, twitterVideo } = req.body || {};
+  let { url, twitterVideo, youtubeVideo } = req.body || {};
 
   if (!url || !isValidUrl(url)) {
     return res.status(400).json({ error: 'Please provide a valid http/https URL.' });
@@ -66,16 +67,20 @@ app.post('/api/shorten', async (req, res) => {
   try {
     const source = url;
     const status = twitterVideo === true ? parseStatus(url) : null;
+    const video = youtubeVideo === true ? parseVideo(url) : null;
     let tweet;
+    let youtube;
     if (status) {
       ({ url, tweet } = await resolveTweet(status));
+    } else if (video) {
+      ({ url, youtube } = await resolveVideo(video));
     }
 
     let code;
 
     for (let attempts = 0; attempts < 5 && !code; attempts++) {
       const candidate = nanoid(6);
-      if (await claimCode(candidate, url, tweet)) {
+      if (await claimCode(candidate, url, tweet, youtube)) {
         code = candidate;
       }
     }
@@ -89,11 +94,12 @@ app.post('/api/shorten', async (req, res) => {
       target: url,
       source,
       tweet,
+      youtube,
     });
   } catch (err) {
     console.error(err);
     
-    if (err instanceof TwitterError) {
+    if (err instanceof TwitterError || err instanceof YouTubeError) {
       return res.status(400).json({ error: err.message });
     }
     
@@ -139,8 +145,8 @@ app.get('/api', (req, res) => {
       {
         method: 'POST',
         path: '/api/shorten',
-        body: { url: 'https://example.com', twitterVideo: 'optional boolean' },
-        description: 'Shortens a URL. With twitterVideo: true, Twitter/X post links open the post in phib, pointing to its video when it has one.',
+        body: { url: 'https://example.com', twitterVideo: 'optional boolean', youtubeVideo: 'optional boolean' },
+        description: 'Shortens a URL. With twitterVideo: true, Twitter/X post links open the post in phib, pointing to its video when it has one. With youtubeVideo: true, YouTube video links open the video in phib.',
       },
       {
         method: 'GET',
@@ -189,7 +195,7 @@ app.get('/api/admin/links', requireAdmin, async (req, res) => {
         if (!record) {
           return;
         }
-        const { target, createdAt, tweet } = parseRecord(record);
+        const { target, createdAt, tweet, youtube } = parseRecord(record);
         links.push({
           code,
           shortUrl: `https://${SHORT_DOMAIN}/${code}`,
@@ -197,6 +203,7 @@ app.get('/api/admin/links', requireAdmin, async (req, res) => {
           createdAt,
           clicks: Number(values[j * 2 + 1]) || 0,
           tweet: tweet ? { url: tweet.url, handle: tweet.author.handle, text: tweet.text } : null,
+          youtube: youtube ? { url: youtube.url, channel: youtube.author.name, title: youtube.title } : null,
         });
       });
     }
@@ -286,6 +293,28 @@ app.get(/^\/\w+\/status\/\d+(\/(video|photo)\/\d+)?\/?$/, async (req, res, next)
   }
 });
 
+async function sendYouTube(res, next, value) {
+  try {
+    const { youtube } = await resolveVideo(parseVideo(value));
+    res.set('Cache-Control', 'public, max-age=300');
+    res.send(renderYouTubePage({ youtube }));
+  } catch (err) {
+    if (err instanceof YouTubeError) {
+      return next();
+    }
+    next(err);
+  }
+}
+
+// Proxy mode for YouTube: swapping youtube.com for the short domain
+// (pb3p.uk/watch?v=... or pb3p.uk/shorts/...) shows the video in phib.
+app.get(/^\/(watch|shorts\/[\w-]{11})\/?$/, (req, res, next) => {
+  if (!parseVideo(`https://www.youtube.com${req.originalUrl}`)) {
+    return next();
+  }
+  sendYouTube(res, next, `https://www.youtube.com${req.originalUrl}`);
+});
+
 app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
@@ -294,13 +323,21 @@ app.get('/:code', async (req, res, next) => {
   try {
     const record = await redis.get(`url:${req.params.code}`);
     if (!record) {
+      // Short codes are 6 characters, so an 11 character path is a youtu.be
+      // link with the short domain swapped in.
+      if (VIDEO_ID.test(req.params.code)) {
+        return sendYouTube(res, next, `https://youtu.be${req.originalUrl}`);
+      }
       return next();
     }
-    const { target, tweet } = parseRecord(record);
+    const { target, tweet, youtube } = parseRecord(record);
     // Awaited because Vercel can freeze the function as soon as the response is sent.
     await redis.incr(`clicks:${req.params.code}`).catch((err) => console.error(err));
     if (tweet) {
       return res.send(renderWatchPage({ target, tweet }));
+    }
+    if (youtube) {
+      return res.send(renderYouTubePage({ youtube }));
     }
     // Hosts like video.twimg.com reject requests whose Referer is another site.
     res.set('Referrer-Policy', 'no-referrer');

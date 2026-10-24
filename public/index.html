@@ -39,6 +39,10 @@
         <input type="checkbox" id="twitter-video" />
         Show Twitter/X posts in phib
       </label>
+      <label class="toggle">
+        <input type="checkbox" id="youtube-video" />
+        Show YouTube videos in phib
+      </label>
     </form>
 
     <p id="error" class="error" hidden></p>
@@ -81,12 +85,27 @@
       <section id="comments" class="comments" hidden></section>
     </div>
 
+    <div id="youtube-layout" class="tweet-layout" hidden>
+      <div class="tweet">
+        <iframe id="youtube-player" class="tweet-video youtube-player"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+        <p id="youtube-title" class="tweet-text youtube-title"></p>
+        <p class="tweet-meta">
+          <a id="youtube-channel" target="_blank" rel="noopener"></a> ·
+          <a id="youtube-link" target="_blank" rel="noopener">Watch on YouTube</a>
+        </p>
+      </div>
+    </div>
+
     <ul id="history" class="history"></ul>
     <button id="clear-btn" type="button" class="clear-btn" aria-label="Clear the history of links.">
       clear
     </button>
 
   </main>
+
+  <a class="support" href="https://ko-fi.com/bankosegger/goal?g=0" target="_blank" rel="noopener">support phib</a>
 
   <script src="comments.js"></script>
   <script src="script.js"></script>

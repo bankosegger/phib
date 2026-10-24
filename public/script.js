@@ -9,6 +9,8 @@ const historyEl = document.getElementById('history');
 const twitterVideoEl = document.getElementById('twitter-video');
 const tweetLayoutEl = document.getElementById('tweet-layout');
 const commentsEl = document.getElementById('comments');
+const youtubeVideoEl = document.getElementById('youtube-video');
+const youtubeLayoutEl = document.getElementById('youtube-layout');
 
 const HISTORY_KEY = 'phib-history';
 const QUOTE_KEY = 'phib-quote';
@@ -62,6 +64,13 @@ twitterVideoEl.addEventListener('change', () => {
   localStorage.setItem(TWITTER_VIDEO_KEY, twitterVideoEl.checked);
 });
 
+const YOUTUBE_VIDEO_KEY = 'phib-youtube-video';
+
+youtubeVideoEl.checked = localStorage.getItem(YOUTUBE_VIDEO_KEY) === 'true';
+youtubeVideoEl.addEventListener('change', () => {
+  localStorage.setItem(YOUTUBE_VIDEO_KEY, youtubeVideoEl.checked);
+});
+
 function loadHistory() {
   try {
     return JSON.parse(localStorage.getItem(HISTORY_KEY)) || [];
@@ -84,11 +93,14 @@ const LINK_ICON =
   '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />' +
   '<path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>';
 
-// What a history entry points to: the tweet for Twitter/X posts, otherwise the
-// target address without its protocol.
+// What a history entry points to: the tweet for Twitter/X posts, the video for
+// YouTube links, otherwise the target address without its protocol.
 function describeTarget(item) {
   if (item.tweet) {
     return `@${item.tweet.handle}: ${item.tweet.text}`;
+  }
+  if (item.youtube) {
+    return `${item.youtube.channel}: ${item.youtube.title}`;
   }
   return (item.source || item.target).replace(/^https?:\/\/(www\.)?/, '');
 }
@@ -102,9 +114,10 @@ function renderHistory() {
 
     const thumb = document.createElement('div');
     thumb.className = 'history-thumb';
-    if (item.tweet && item.tweet.thumbnail) {
+    const thumbnail = item.tweet ? item.tweet.thumbnail && mediaUrl(item.tweet.thumbnail) : item.youtube?.thumbnail;
+    if (thumbnail) {
       const img = document.createElement('img');
-      img.src = mediaUrl(item.tweet.thumbnail);
+      img.src = thumbnail;
       img.alt = '';
       // Thumbnails disappear when a tweet is deleted.
       img.onerror = () => {
@@ -161,6 +174,28 @@ function hideVideo() {
   videoEl.removeAttribute('src');
   videoEl.load();
   videoEl.hidden = true;
+}
+
+function renderYouTube(youtube) {
+  const playerEl = document.getElementById('youtube-player');
+  if (!youtube) {
+    playerEl.removeAttribute('src');
+    youtubeLayoutEl.hidden = true;
+    return;
+  }
+  const embed = new URL(`https://www.youtube-nocookie.com/embed/${youtube.id}`);
+  if (youtube.start) {
+    embed.searchParams.set('start', youtube.start);
+  }
+  playerEl.src = embed;
+  playerEl.title = youtube.title;
+  playerEl.style.setProperty('--ratio', youtube.short ? 9 / 16 : 16 / 9);
+  document.getElementById('youtube-title').textContent = youtube.title;
+  const channelEl = document.getElementById('youtube-channel');
+  channelEl.href = youtube.author.url;
+  channelEl.textContent = youtube.author.name;
+  document.getElementById('youtube-link').href = youtube.url;
+  youtubeLayoutEl.hidden = false;
 }
 
 function hideTweet() {
@@ -297,6 +332,7 @@ function showError(message) {
   errorEl.hidden = false;
   resultEl.hidden = true;
   hideTweet();
+  renderYouTube(null);
 }
 
 function showResult(data) {
@@ -305,6 +341,7 @@ function showResult(data) {
   shortLinkEl.textContent = data.shortUrl;
   resultEl.hidden = false;
   renderTweet(data.tweet, data.target);
+  renderYouTube(data.youtube);
 
   const items = loadHistory();
   items.unshift({
@@ -317,6 +354,11 @@ function showResult(data) {
       handle: data.tweet.author.handle,
       text: data.tweet.text.slice(0, 140),
       thumbnail: tweetThumbnail(data.tweet),
+    },
+    youtube: data.youtube && {
+      channel: data.youtube.author.name,
+      title: data.youtube.title,
+      thumbnail: data.youtube.thumbnail,
     },
   });
   saveHistory(items);
@@ -333,7 +375,7 @@ form.addEventListener('submit', async (e) => {
     const res = await fetch('/api/shorten', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url, twitterVideo: twitterVideoEl.checked }),
+      body: JSON.stringify({ url, twitterVideo: twitterVideoEl.checked, youtubeVideo: youtubeVideoEl.checked }),
     });
     const data = await res.json();
 

@@ -46,6 +46,7 @@ html {
 }
 
 body {
+  position: relative;
   margin: 0;
   padding: 0 16px;
   display: flex;
@@ -531,6 +532,16 @@ form {
   overflow-wrap: anywhere;
 }
 
+iframe.youtube-player {
+  border: 0;
+}
+
+.youtube-title {
+  margin-top: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
 /* The quoted post: a smaller tweet in a box that opens its own phib page. */
 .tweet-quote {
   display: block;
@@ -800,6 +811,20 @@ form {
   margin: 0.5rem 0 0 auto;
   padding: 4px 12px;
   font-size: 0.75rem;
+}
+
+.support {
+  position: absolute;
+  bottom: 0.75rem;
+  left: 50%;
+  transform: translateX(-50%);
+  color: var(--phib-muted);
+  font-size: 0.6875rem;
+  opacity: 0.5;
+}
+
+.support:hover {
+  opacity: 1;
 }
 
 /* Admin ------------------------------------------------------------------ */

@@ -56,6 +56,9 @@ function describeTarget(link) {
   if (link.tweet) {
     return `@${link.tweet.handle}: ${link.tweet.text}`;
   }
+  if (link.youtube) {
+    return `${link.youtube.channel}: ${link.youtube.title}`;
+  }
   return link.target.replace(/^https?:\/\/(www\.)?/, '');
 }
 
@@ -96,7 +99,7 @@ function render() {
     const targetCell = document.createElement('td');
     targetCell.className = 'admin-target';
     const target = document.createElement('a');
-    target.href = link.tweet ? link.tweet.url : link.target;
+    target.href = link.tweet ? link.tweet.url : link.youtube ? link.youtube.url : link.target;
     target.target = '_blank';
     target.rel = 'noopener';
     target.textContent = describeTarget(link);
