@@ -35,14 +35,16 @@
         <input type="url" id="url-input" placeholder="https://example.com" required />
         <button type="submit">Shorten</button>
       </div>
-      <label class="toggle">
-        <input type="checkbox" id="twitter-video" />
-        Show Twitter/X posts in phib
-      </label>
-      <label class="toggle">
-        <input type="checkbox" id="youtube-video" />
-        Show YouTube videos in phib
-      </label>
+      <div class="toggles">
+        <label class="toggle">
+          <input type="checkbox" id="twitter-video" />
+          Twitter/X posts
+        </label>
+        <label class="toggle">
+          <input type="checkbox" id="youtube-video" />
+          YouTube videos
+        </label>
+      </div>
     </form>
 
     <p id="error" class="error" hidden></p>
