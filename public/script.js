@@ -6,11 +6,13 @@ const shortLinkEl = document.getElementById('short-link');
 const copyBtn = document.getElementById('copy-btn');
 const clearBtn = document.getElementById('clear-btn');
 const historyEl = document.getElementById('history');
-const twitterVideoEl = document.getElementById('twitter-video');
 const tweetLayoutEl = document.getElementById('tweet-layout');
 const commentsEl = document.getElementById('comments');
-const youtubeVideoEl = document.getElementById('youtube-video');
 const youtubeLayoutEl = document.getElementById('youtube-layout');
+const choiceEl = document.getElementById('choice');
+const choiceLabelEl = document.getElementById('choice-label');
+const choiceShortBtn = document.getElementById('choice-short');
+const choiceViewBtn = document.getElementById('choice-view');
 
 const HISTORY_KEY = 'phib-history';
 const QUOTE_KEY = 'phib-quote';
@@ -57,19 +59,54 @@ function showQuote() {
 }
 
 showQuote();
-const TWITTER_VIDEO_KEY = 'phib-twitter-video';
 
-twitterVideoEl.checked = localStorage.getItem(TWITTER_VIDEO_KEY) === 'true';
-twitterVideoEl.addEventListener('change', () => {
-  localStorage.setItem(TWITTER_VIDEO_KEY, twitterVideoEl.checked);
-});
+const TWITTER_HOSTS = ['twitter.com', 'x.com', 'mobile.twitter.com', 'mobile.x.com'];
+const YOUTUBE_HOSTS = ['youtube.com', 'm.youtube.com', 'music.youtube.com', 'youtube-nocookie.com'];
+const VIDEO_ID = /^[\w-]{11}$/;
 
-const YOUTUBE_VIDEO_KEY = 'phib-youtube-video';
+// Whether a link is a Twitter/X post or a YouTube video, mirroring parseStatus
+// in lib/twitter.js and parseVideo in lib/youtube.js.
+function detectKind(value) {
+  let url;
+  try {
+    url = new URL(value);
+  } catch {
+    return null;
+  }
+  const host = url.hostname.toLowerCase().replace(/^www\./, '');
+  if (TWITTER_HOSTS.includes(host) && /\/status\/\d+/.test(url.pathname)) {
+    return 'twitter';
+  }
+  let id;
+  if (host === 'youtu.be') {
+    id = url.pathname.split('/')[1];
+  } else if (YOUTUBE_HOSTS.includes(host)) {
+    const match = url.pathname.match(/^\/(?:shorts|embed|live|v)\/([^/]+)/);
+    id = match ? match[1] : url.pathname === '/watch' ? url.searchParams.get('v') : null;
+  }
+  return id && VIDEO_ID.test(id) ? 'youtube' : null;
+}
 
-youtubeVideoEl.checked = localStorage.getItem(YOUTUBE_VIDEO_KEY) === 'true';
-youtubeVideoEl.addEventListener('change', () => {
-  localStorage.setItem(YOUTUBE_VIDEO_KEY, youtubeVideoEl.checked);
-});
+const CHOICES = {
+  twitter: { label: 'This is a Twitter/X post.', view: 'Post view' },
+  youtube: { label: 'This is a YouTube video.', view: 'YouTube view' },
+};
+
+// The kind of link the choice is currently asked for, or null.
+let pendingKind = null;
+
+function showChoice(kind) {
+  pendingKind = kind;
+  choiceLabelEl.textContent = CHOICES[kind].label;
+  choiceViewBtn.textContent = CHOICES[kind].view;
+  choiceEl.hidden = false;
+  choiceViewBtn.focus();
+}
+
+function hideChoice() {
+  pendingKind = null;
+  choiceEl.hidden = true;
+}
 
 function loadHistory() {
   try {
@@ -372,9 +409,11 @@ function showResult(data) {
   renderHistory();
 }
 
-form.addEventListener('submit', async (e) => {
-  e.preventDefault();
+// view picks the Twitter/X post or YouTube view over a plain short link.
+async function shorten(view) {
   errorEl.hidden = true;
+  const kind = pendingKind;
+  hideChoice();
 
   const url = urlInput.value.trim();
 
@@ -382,7 +421,11 @@ form.addEventListener('submit', async (e) => {
     const res = await fetch('/api/shorten', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url, twitterVideo: twitterVideoEl.checked, youtubeVideo: youtubeVideoEl.checked }),
+      body: JSON.stringify({
+        url,
+        twitterVideo: view && kind === 'twitter',
+        youtubeVideo: view && kind === 'youtube',
+      }),
     });
     const data = await res.json();
 
@@ -396,7 +439,24 @@ form.addEventListener('submit', async (e) => {
   } catch {
     showError('Could not reach the server. Please try again.');
   }
+}
+
+form.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const kind = detectKind(urlInput.value.trim());
+  if (kind) {
+    errorEl.hidden = true;
+    showChoice(kind);
+    return;
+  }
+  shorten(false);
 });
+
+choiceShortBtn.addEventListener('click', () => shorten(false));
+choiceViewBtn.addEventListener('click', () => shorten(true));
+
+// A different link needs its own answer.
+urlInput.addEventListener('input', hideChoice);
 
 copyBtn.addEventListener('click', async () => {
   try {

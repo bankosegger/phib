@@ -35,15 +35,11 @@
         <input type="url" id="url-input" placeholder="https://example.com" required />
         <button type="submit">Shorten</button>
       </div>
-      <div class="toggles">
-        <label class="toggle">
-          <input type="checkbox" id="twitter-video" />
-          Twitter/X posts
-        </label>
-        <label class="toggle">
-          <input type="checkbox" id="youtube-video" />
-          YouTube videos
-        </label>
+      <!-- Shown when the pasted link is a Twitter/X post or YouTube video -->
+      <div id="choice" class="choice" hidden>
+        <span id="choice-label" class="choice-label"></span>
+        <button type="button" id="choice-short" class="choice-btn">Short link</button>
+        <button type="button" id="choice-view" class="choice-btn choice-btn-primary"></button>
       </div>
     </form>
 
