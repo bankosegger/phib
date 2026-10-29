@@ -10,17 +10,18 @@
 }
 
 :root {
-  --phib-canvas: #1c1c1c;
-  --phib-stone: #312c28;
-  --phib-sand: #25221f;
-  --phib-ink: #f5f3f0;
-  --phib-muted: #ada59c;
-  --phib-linen: #3d3732;
-  --phib-accent: #f2884b;
-  --phib-error: #ff6b5e;
-  /* Neutral grey boxes for the short link, video and replies. */
-  --phib-box: #242424;
-  --phib-box-line: #303030;
+  /* The colors of Twitter's "Dim" dark theme from before it became X. */
+  --phib-canvas: #15202b;
+  --phib-stone: #38444d;
+  --phib-sand: #22303c;
+  --phib-ink: #ffffff;
+  --phib-muted: #8899a6;
+  --phib-linen: #4a5964;
+  --phib-accent: #1da1f2;
+  --phib-error: #e0245e;
+  /* Boxes for the short link, video and replies. */
+  --phib-box: #192734;
+  --phib-box-line: #38444d;
 
   --phib-font: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell,
     "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
@@ -65,7 +66,7 @@ body {
 }
 
 ::selection {
-  background: #f2884b33;
+  background: #1da1f24d;
 }
 
 :focus-visible {
@@ -434,32 +435,34 @@ form {
   transform: translateX(-50%) translateY(0);
 }
 
-/* With a tweet showing, the card widens and the replies sit in a
- * column to the right of the tweet. */
+/* With a tweet showing, the card widens: the tweet takes a column as wide as
+ * x.com's timeline and the replies sit beside it. */
 .card:has(.tweet-layout:not([hidden])) {
-  max-width: 1200px;
+  max-width: 1080px;
 }
 
 .tweet-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 340px;
-  gap: 0.75rem;
-  margin-top: 0.75rem;
+  grid-template-columns: minmax(0, 600px) minmax(0, 420px);
+  justify-content: center;
+  align-items: start;
+  gap: 1rem;
+  margin-top: 1rem;
 }
 
-/* The replies column takes the height of the video column and scrolls inside;
- * size containment stops its own content from making the row taller. */
+/* YouTube videos have no replies column. */
+.tweet-layout:has(> :only-child) {
+  grid-template-columns: minmax(0, 600px);
+}
+
+/* The replies follow the page as it scrolls past a tall video, and scroll
+ * inside once they are taller than the window. */
 .tweet-layout .comments {
-  contain: size;
-  min-height: 360px;
-  display: flex;
-  flex-direction: column;
-}
-
-.tweet-layout .comments-list {
-  flex: 1;
-  min-height: 0;
-  max-height: none;
+  position: sticky;
+  top: 1rem;
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 @media (max-width: 860px) {
@@ -468,12 +471,8 @@ form {
   }
 
   .tweet-layout .comments {
-    contain: none;
-    min-height: 0;
-  }
-
-  .tweet-layout .comments-list {
-    max-height: 60vh;
+    position: static;
+    max-height: none;
   }
 }
 
@@ -483,68 +482,33 @@ form {
   }
 }
 
+/* The tweet is a size container so its media can size to its width (cqw). */
 .tweet {
-  align-self: start;
-  padding: 0.75rem;
+  padding: 1rem;
+  container-type: inline-size;
 }
 
-/* --ratio (width / height) is set from the tweet so the player keeps its size
- * before the video loads; tall videos get narrower to stay within 75vh. */
-.tweet-video {
-  display: block;
-  aspect-ratio: var(--ratio, 16 / 9);
-  width: min(100%, calc(75vh * var(--ratio, 16 / 9)));
-  margin: 0 auto 0.75rem;
-  background: #000;
-  border-radius: 4px;
-}
-
-/* One photo keeps its shape like the video player; several share a grid of
- * cropped tiles, as on x.com. */
-.tweet-photos {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 2px;
-  margin: 0 0 0.75rem;
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-.tweet-photos[data-count='1'] {
-  grid-template-columns: minmax(0, 1fr);
-  justify-items: center;
-}
-
-.tweet-photo {
-  display: block;
-  width: 100%;
-  aspect-ratio: 1;
-  object-fit: cover;
-  background: #000;
-}
-
-/* Tall photos get narrower to stay within 75vh, like the video player. */
-.tweet-photos[data-count='1'] .tweet-photo {
-  aspect-ratio: var(--ratio, 16 / 9);
-  width: min(100%, calc(75vh * var(--ratio, 16 / 9)));
-  border-radius: 4px;
-}
-
-.tweet-photos[data-count='1'] a {
-  display: contents;
+.tweet-text:empty {
+  display: none;
 }
 
 .tweet-author {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.625rem;
+  min-width: 0;
+}
+
+.tweet-author > :last-child {
+  min-width: 0;
 }
 
 .tweet-avatar {
-  width: 32px;
-  height: 32px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   flex-shrink: 0;
+  background: var(--phib-box-line);
 }
 
 .tweet-name {
@@ -552,8 +516,11 @@ form {
   color: var(--phib-ink);
   text-decoration: none;
   font-weight: 700;
-  font-size: 0.8125rem;
-  line-height: 1.2;
+  font-size: 0.9375rem;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .tweet-name:hover {
@@ -562,12 +529,14 @@ form {
 
 .tweet-handle {
   color: var(--phib-muted);
-  font-size: 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 500;
 }
 
 .tweet-text {
-  margin: 0.625rem 0 0;
-  font-size: 0.8125rem;
+  margin: 0.75rem 0 0;
+  font-size: 1.0625rem;
+  line-height: 1.45;
   white-space: pre-line;
   overflow-wrap: anywhere;
 }
@@ -577,29 +546,113 @@ iframe.youtube-player {
 }
 
 .youtube-title {
-  margin-top: 0;
+  margin-top: 0.75rem;
   font-size: 0.9375rem;
   font-weight: 600;
+}
+
+/* Videos and photos sit in a full-width rounded frame below the text, as on
+ * x.com. The frame is as tall as the media at full width (--ratio is width /
+ * height, set from the tweet so nothing jumps while it loads), up to
+ * --media-height; tall media then sit centred over a blurred copy of their
+ * picture. */
+.tweet-media {
+  --media-height: min(70vh, 640px);
+  position: relative;
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  height: min(var(--media-height), calc(100cqw / (var(--ratio, 16 / 9))));
+  margin: 0.75rem 0 0;
+  overflow: hidden;
+  border-radius: 16px;
+  box-shadow: 0 0 0 1px var(--phib-box-line);
+  background: #000;
+}
+
+.tweet-media-backdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: blur(32px) brightness(0.5);
+  transform: scale(1.2);
+  pointer-events: none;
+}
+
+.tweet-video,
+.tweet-photos[data-count='1'] .tweet-photo {
+  position: relative;
+  display: block;
+  height: 100%;
+  width: auto;
+  max-width: 100%;
+  aspect-ratio: var(--ratio, 16 / 9);
+  object-fit: contain;
+}
+
+.tweet-photos[data-count='1'] a {
+  display: contents;
+}
+
+/* Several photos share a 16:9 grid of cropped tiles: two side by side, three
+ * with the first one tall, four in two rows. */
+.tweet-photos:not([data-count='1']) {
+  --ratio: 16 / 9;
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr;
+  gap: 2px;
+  background: var(--phib-box-line);
+}
+
+.tweet-photos[data-count='3'],
+.tweet-photos[data-count='4'] {
+  grid-template-rows: 1fr 1fr;
+}
+
+.tweet-photos[data-count='3'] > :first-child {
+  grid-row: span 2;
+}
+
+.tweet-photos a {
+  display: block;
+  min-height: 0;
+}
+
+.tweet-photo {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 /* The quoted post: a smaller tweet in a box that opens its own phib page. */
 .tweet-quote {
   display: block;
-  margin: 0.625rem 0 0;
-  padding: 0.625rem;
-  border-radius: 4px;
+  margin: 0.75rem 0 0;
+  padding: 0.75rem;
+  border-radius: 16px;
   box-shadow: inset 0 0 0 1px var(--phib-box-line);
   color: var(--phib-ink);
   text-decoration: none;
+  transition: background 0.16s ease;
 }
 
 .tweet-quote:hover {
-  box-shadow: inset 0 0 0 1px var(--phib-linen);
+  text-decoration: none;
+  background: #ffffff08;
 }
 
 .tweet-quote .tweet-avatar {
   width: 20px;
   height: 20px;
+}
+
+.tweet-quote .tweet-author {
+  gap: 0.375rem;
 }
 
 .tweet-quote .tweet-author > span {
@@ -609,9 +662,18 @@ iframe.youtube-player {
   min-width: 0;
 }
 
+.tweet-quote .tweet-name {
+  font-size: 0.875rem;
+}
+
+.tweet-quote .tweet-handle {
+  white-space: nowrap;
+}
+
 .tweet-quote .tweet-text {
   display: -webkit-box;
-  margin-top: 0.375rem;
+  margin-top: 0.25rem;
+  font-size: 0.9375rem;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 8;
   overflow: hidden;
@@ -619,27 +681,25 @@ iframe.youtube-player {
 
 /* Quoted images are a row of small square thumbnails whatever their shape;
  * the quote's own phib page shows them in full. */
-.tweet-quote .tweet-photos,
-.tweet-quote .tweet-photos[data-count='1'] {
+.tweet-quote-images {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
   margin: 0.5rem 0 0;
-  border-radius: 0;
 }
 
-.tweet-quote .tweet-photo,
-.tweet-quote .tweet-photos[data-count='1'] .tweet-photo {
+.tweet-quote-image {
   width: 4.5rem;
   height: 4.5rem;
-  aspect-ratio: 1;
-  border-radius: 4px;
+  object-fit: cover;
+  border-radius: 8px;
+  background: #000;
 }
 
 .tweet-meta {
-  margin: 0.5rem 0 0;
+  margin: 0.875rem 0 0;
   color: var(--phib-muted);
-  font-size: 0.75rem;
+  font-size: 0.875rem;
 }
 
 .tweet-meta a {
@@ -650,65 +710,137 @@ iframe.youtube-player {
   color: var(--phib-ink);
 }
 
+.tweet-stats {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.75rem;
+  padding: 0.625rem 0.25rem 0;
+  border-top: 1px solid var(--phib-box-line);
+}
+
+.tweet-stat,
+.comment-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  color: var(--phib-muted);
+  font-size: 0.8125rem;
+}
+
+.tweet-stat svg,
+.comment-stat svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Replies ---------------------------------------------------------------- */
+
 .comments {
-  padding: 0.75rem;
+  padding: 1rem;
 }
 
 .comments-title {
-  margin: 0 0 0.5rem;
-  font-size: 0.8125rem;
+  margin: 0 0 0.75rem;
+  font-size: 0.9375rem;
   font-weight: 700;
 }
 
 .comments-status {
   margin: 0;
   color: var(--phib-muted);
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
 }
 
-.comments-list {
+.comments-list,
+.comment-children {
   list-style: none;
   margin: 0;
   padding: 0;
-  max-height: 75vh;
-  overflow-y: auto;
 }
 
+/* Each reply is an avatar column and a content column; its own replies nest
+ * in the content column, so every level indents by one avatar. The line under
+ * the avatar runs down the side of the thread and folds it when clicked. */
 .comment {
-  display: flex;
-  gap: 0.5rem;
-  padding: 0.625rem 0;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  column-gap: 0.625rem;
+}
+
+.comments-list > .comment {
+  padding: 0.75rem 0;
   border-top: 1px solid var(--phib-box-line);
 }
 
-.comment:first-child {
+.comments-list > .comment:first-child {
   border-top: none;
   padding-top: 0;
 }
 
-.comment-avatar {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  flex-shrink: 0;
+.comment-children {
+  margin-top: 0.25rem;
 }
 
-.comment-body {
-  min-width: 0;
+.comment-children > .comment {
+  grid-template-columns: 24px minmax(0, 1fr);
+  column-gap: 0.5rem;
+  padding-top: 0.625rem;
+}
+
+.comment-gutter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.comment-avatar {
+  width: 100%;
+  aspect-ratio: 1;
+  height: auto;
+  border-radius: 50%;
+  background: var(--phib-box-line);
+}
+
+.comment-line {
+  flex: 1;
+  width: 16px;
+  min-height: 0;
+  margin-top: 4px;
+  padding: 0;
+  border-radius: 0;
+  background: linear-gradient(var(--phib-box-line), var(--phib-box-line)) center / 2px 100% no-repeat;
+  box-shadow: none;
+}
+
+.comment-line:hover {
+  background-color: transparent;
+  background-image: linear-gradient(var(--phib-muted), var(--phib-muted));
+}
+
+.comment-line:active {
+  transform: none;
 }
 
 .comment-head {
   display: flex;
   align-items: baseline;
-  gap: 0.375rem;
+  gap: 0.25rem;
   min-width: 0;
+  line-height: 1.3;
 }
 
 .comment-name {
+  flex-shrink: 1;
+  min-width: 0;
   color: var(--phib-ink);
   text-decoration: none;
   font-weight: 700;
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -719,24 +851,78 @@ iframe.youtube-player {
 }
 
 .comment-handle,
-.comment-likes {
+.comment-time {
   color: var(--phib-muted);
-  font-size: 0.6875rem;
+  font-size: 0.8125rem;
   white-space: nowrap;
 }
 
+.comment-handle {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .comment-text {
-  margin: 0.125rem 0 0.25rem;
-  font-size: 0.8125rem;
+  margin: 0.125rem 0 0;
+  font-size: 0.875rem;
+  line-height: 1.45;
   white-space: pre-line;
   overflow-wrap: anywhere;
 }
 
+.comment-actions {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  margin-top: 0.375rem;
+}
+
+.comment-stat {
+  font-size: 0.75rem;
+}
+
+.comment-stat svg {
+  width: 15px;
+  height: 15px;
+}
+
+.comment-toggle,
+.comment-more button {
+  margin-left: auto;
+  padding: 0;
+  background: none;
+  box-shadow: none;
+  border-radius: 0;
+  color: var(--phib-accent);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.comment-toggle:hover,
+.comment-more button:hover {
+  background: none;
+  color: var(--phib-accent);
+  text-decoration: underline;
+}
+
+.comment-more {
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.comment-more a {
+  color: var(--phib-muted);
+}
+
 .comments-more {
   display: block;
-  margin-top: 0.5rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--phib-box-line);
   color: var(--phib-muted);
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
 }
 
 .comments-more:hover {

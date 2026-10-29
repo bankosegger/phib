@@ -66,9 +66,8 @@
     </div>
 
     <div id="tweet-layout" class="tweet-layout" hidden>
-      <div class="tweet">
-        <video id="tweet-video" class="tweet-video" controls playsinline preload="metadata" hidden></video>
-        <div id="tweet-photos" class="tweet-photos" hidden></div>
+      <!-- Same markup as lib/watch.js -->
+      <article class="tweet">
         <div class="tweet-author">
           <img id="tweet-avatar" class="tweet-avatar" alt="" referrerpolicy="no-referrer" />
           <div>
@@ -77,21 +76,35 @@
           </div>
         </div>
         <p id="tweet-text" class="tweet-text"></p>
+        <div id="tweet-video-frame" class="tweet-media" hidden>
+          <img id="tweet-video-backdrop" class="tweet-media-backdrop" alt="" />
+          <video id="tweet-video" class="tweet-video" controls playsinline preload="metadata"></video>
+        </div>
+        <div id="tweet-photos" class="tweet-media tweet-photos" hidden></div>
         <a id="tweet-quote" class="tweet-quote" hidden></a>
         <p class="tweet-meta">
-          <span id="tweet-meta"></span> ·
-          <a id="tweet-link" target="_blank" rel="noopener">View post</a>
+          <span id="tweet-date"></span> ·
+          <a id="tweet-link" target="_blank" rel="noopener">View on X</a>
         </p>
-      </div>
+        <div class="tweet-stats">
+          <span class="tweet-stat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg><span id="tweet-replies"></span></span>
+          <span class="tweet-stat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg><span id="tweet-reposts"></span></span>
+          <span class="tweet-stat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg><span id="tweet-likes"></span></span>
+          <span class="tweet-stat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg><span id="tweet-views"></span></span>
+        </div>
+      </article>
 
       <section id="comments" class="comments" hidden></section>
     </div>
 
     <div id="youtube-layout" class="tweet-layout" hidden>
       <div class="tweet">
-        <iframe id="youtube-player" class="tweet-video youtube-player"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-          referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+        <div class="tweet-media">
+          <img id="youtube-backdrop" class="tweet-media-backdrop" alt="" />
+          <iframe id="youtube-player" class="tweet-video youtube-player"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+        </div>
         <p id="youtube-title" class="tweet-text youtube-title"></p>
         <p class="tweet-meta">
           <a id="youtube-channel" target="_blank" rel="noopener"></a> ·

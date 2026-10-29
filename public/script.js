@@ -173,7 +173,7 @@ function hideVideo() {
   videoEl.pause();
   videoEl.removeAttribute('src');
   videoEl.load();
-  videoEl.hidden = true;
+  videoEl.parentElement.hidden = true;
 }
 
 function renderYouTube(youtube) {
@@ -189,7 +189,8 @@ function renderYouTube(youtube) {
   }
   playerEl.src = embed;
   playerEl.title = youtube.title;
-  playerEl.style.setProperty('--ratio', youtube.short ? 9 / 16 : 16 / 9);
+  playerEl.parentElement.style.setProperty('--ratio', youtube.short ? 9 / 16 : 16 / 9);
+  document.getElementById('youtube-backdrop').src = youtube.thumbnail;
   document.getElementById('youtube-title').textContent = youtube.title;
   const channelEl = document.getElementById('youtube-channel');
   channelEl.href = youtube.author.url;
@@ -223,6 +224,14 @@ function renderPhotos(photos) {
     return;
   }
   photosEl.dataset.count = photos.length;
+  photosEl.style.setProperty('--ratio', photos[0].width / photos[0].height);
+  if (photos.length === 1) {
+    const backdrop = document.createElement('img');
+    backdrop.className = 'tweet-media-backdrop';
+    backdrop.src = mediaUrl(photos[0].url);
+    backdrop.alt = '';
+    photosEl.appendChild(backdrop);
+  }
   for (const photo of photos) {
     const a = document.createElement('a');
     a.href = mediaUrl(photo.url);
@@ -230,7 +239,6 @@ function renderPhotos(photos) {
     a.rel = 'noopener';
     const img = document.createElement('img');
     img.className = 'tweet-photo';
-    img.style.setProperty('--ratio', photo.width / photo.height);
     img.src = mediaUrl(photo.url);
     img.alt = '';
     a.appendChild(img);
@@ -271,12 +279,10 @@ function renderQuote(quote) {
 
   if (quote.images) {
     const images = document.createElement('span');
-    images.className = 'tweet-photos';
-    images.dataset.count = quote.images.length;
+    images.className = 'tweet-quote-images';
     for (const image of quote.images) {
       const img = document.createElement('img');
-      img.className = 'tweet-photo';
-      img.style.setProperty('--ratio', image.width / image.height);
+      img.className = 'tweet-quote-image';
       img.src = mediaUrl(image.url);
       img.alt = '';
       images.appendChild(img);
@@ -294,10 +300,11 @@ function renderTweet(tweet, videoUrl) {
 
   if (video) {
     const videoEl = document.getElementById('tweet-video');
-    videoEl.style.setProperty('--ratio', video.width / video.height);
+    videoEl.parentElement.style.setProperty('--ratio', video.width / video.height);
     videoEl.poster = mediaUrl(video.thumbnail);
+    document.getElementById('tweet-video-backdrop').src = mediaUrl(video.thumbnail);
     videoEl.src = mediaUrl(videoUrl);
-    videoEl.hidden = false;
+    videoEl.parentElement.hidden = false;
   } else {
     hideVideo();
   }
@@ -313,15 +320,15 @@ function renderTweet(tweet, videoUrl) {
   document.getElementById('tweet-text').textContent = tweet.text;
   renderQuote(tweet.quote);
 
-  const meta = [new Date(tweet.createdAt).toLocaleDateString(undefined, { dateStyle: 'medium' })];
-  if (video) {
-    meta.push(`${video.width}×${video.height}`);
+  document.getElementById('tweet-date').textContent = new Date(tweet.createdAt).toLocaleDateString(undefined, {
+    dateStyle: 'medium',
+  });
+  const counts = { replies: stats.replies, reposts: stats.retweets, likes: stats.likes, views: stats.views };
+  for (const [kind, count] of Object.entries(counts)) {
+    const countEl = document.getElementById(`tweet-${kind}`);
+    countEl.textContent = count == null ? '' : formatCount(count);
+    countEl.parentElement.hidden = count == null;
   }
-  meta.push(`${formatCount(stats.likes)} likes`, `${formatCount(stats.retweets)} reposts`);
-  if (stats.views != null) {
-    meta.push(`${formatCount(stats.views)} views`);
-  }
-  document.getElementById('tweet-meta').textContent = meta.join(' · ');
 
   tweetLayoutEl.hidden = false;
   showComments(commentsEl, tweet.id, tweet.url);
