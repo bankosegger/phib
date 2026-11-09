@@ -6,6 +6,9 @@ const shortLinkEl = document.getElementById('short-link');
 const copyBtn = document.getElementById('copy-btn');
 const clearBtn = document.getElementById('clear-btn');
 const historyEl = document.getElementById('history');
+const historyBarEl = document.getElementById('history-bar');
+const historyToggleEl = document.getElementById('history-toggle');
+const historyCountEl = document.getElementById('history-count');
 const tweetLayoutEl = document.getElementById('tweet-layout');
 const commentsEl = document.getElementById('comments');
 const youtubeLayoutEl = document.getElementById('youtube-layout');
@@ -142,12 +145,18 @@ function describeTarget(item) {
   return (item.source || item.target).replace(/^https?:\/\/(www\.)?/, '');
 }
 
+// The history list is folded away until the toggle is clicked.
+let historyOpen = false;
+
 function renderHistory() {
   const items = loadHistory();
+  historyBarEl.hidden = items.length === 0;
+  historyCountEl.textContent = items.length;
+  historyEl.hidden = !historyOpen || items.length === 0;
   historyEl.innerHTML = '';
-  clearBtn.hidden = items.length === 0;
   for (const item of items) {
     const li = document.createElement('li');
+    li.title = item.source && item.source !== item.target ? `${item.source}\n→ ${item.target}` : item.target;
 
     const thumb = document.createElement('div');
     thumb.className = 'history-thumb';
@@ -165,32 +174,24 @@ function renderHistory() {
       thumb.innerHTML = LINK_ICON;
     }
 
-    const body = document.createElement('div');
-    body.className = 'history-body';
-
-    const head = document.createElement('div');
-    head.className = 'history-head';
     const a = document.createElement('a');
     a.href = item.shortUrl;
     a.target = '_blank';
     a.rel = 'noopener';
     a.textContent = item.shortUrl.replace(/^https?:\/\//, '');
-    head.appendChild(a);
-    if (item.createdAt) {
-      const time = document.createElement('span');
-      time.className = 'history-time';
-      time.textContent = formatTimeAgo(item.createdAt);
-      time.title = new Date(item.createdAt).toLocaleString();
-      head.appendChild(time);
-    }
 
     const target = document.createElement('span');
     target.className = 'target';
     target.textContent = describeTarget(item);
-    target.title = item.source && item.source !== item.target ? `${item.source}\n→ ${item.target}` : item.target;
 
-    body.append(head, target);
-    li.append(thumb, body);
+    const time = document.createElement('span');
+    time.className = 'history-time';
+    if (item.createdAt) {
+      time.textContent = formatTimeAgo(item.createdAt);
+      time.title = new Date(item.createdAt).toLocaleString();
+    }
+
+    li.append(thumb, a, target, time);
     historyEl.appendChild(li);
   }
 }
@@ -242,18 +243,20 @@ function hideTweet() {
   clearComments(commentsEl);
 }
 
-// The picture that stands for a tweet in the history.
+// The picture that stands for a tweet in the history. A /photo/N link stands
+// for that photo.
 function tweetThumbnail(tweet) {
   if (tweet.video) {
     return tweet.video.thumbnail;
   }
   if (tweet.photos) {
-    return tweet.photos[0].url;
+    const index = tweet.photoIndex != null ? Math.min(tweet.photoIndex, tweet.photos.length - 1) : 0;
+    return tweet.photos[index].url;
   }
   return tweet.author.avatar;
 }
 
-function renderPhotos(photos) {
+function renderPhotos(photos, photoIndex) {
   const photosEl = document.getElementById('tweet-photos');
   photosEl.innerHTML = '';
   photosEl.hidden = !photos;
@@ -269,18 +272,18 @@ function renderPhotos(photos) {
     backdrop.alt = '';
     photosEl.appendChild(backdrop);
   }
-  for (const photo of photos) {
+  photos.forEach((photo, i) => {
     const a = document.createElement('a');
     a.href = mediaUrl(photo.url);
     a.target = '_blank';
     a.rel = 'noopener';
     const img = document.createElement('img');
-    img.className = 'tweet-photo';
+    img.className = 'tweet-photo' + (photoIndex === i ? ' tweet-photo-selected' : '');
     img.src = mediaUrl(photo.url);
     img.alt = '';
     a.appendChild(img);
     photosEl.appendChild(a);
-  }
+  });
 }
 
 // The quoted post, linking to its own phib page; markup matches lib/watch.js.
@@ -345,7 +348,7 @@ function renderTweet(tweet, videoUrl) {
   } else {
     hideVideo();
   }
-  renderPhotos(tweet.photos);
+  renderPhotos(tweet.photos, tweet.photoIndex);
   document.getElementById('tweet-link').href = tweet.url;
 
   document.getElementById('tweet-avatar').src = mediaUrl(author.avatar);
@@ -478,6 +481,12 @@ clearBtn.addEventListener('click', async () => {
   } catch {
     console.error('failed to clear history.')
   }
+});
+
+historyToggleEl.addEventListener('click', () => {
+  historyOpen = !historyOpen;
+  historyToggleEl.setAttribute('aria-expanded', String(historyOpen));
+  renderHistory();
 });
 
 renderHistory();

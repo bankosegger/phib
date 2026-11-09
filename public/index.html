@@ -27,7 +27,7 @@
 
 <body>
   <main class="card">
-    <h1>Phib</h1>
+    <h1 class="logo" aria-label="Phib"><span aria-hidden="true">P<span class="logo-extra"><span>h</span><span>h</span><span>h</span><span>h</span></span>hib<span class="logo-dot">.</span></span></h1>
     <p class="subtitle">Paste a long URL, get a short one.</p>
 
     <form id="shorten-form">
@@ -109,10 +109,21 @@
       </div>
     </div>
 
-    <ul id="history" class="history"></ul>
-    <button id="clear-btn" type="button" class="clear-btn" aria-label="Clear the history of links.">
-      clear
-    </button>
+    <!-- The history stays folded away behind a small toggle. -->
+    <div id="history-bar" class="history-bar" hidden>
+      <button id="history-toggle" type="button" class="history-toggle" aria-expanded="false" aria-controls="history">
+        <svg class="icon-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+          stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+        <span>History</span>
+        <span id="history-count" class="history-count"></span>
+      </button>
+      <button id="clear-btn" type="button" class="clear-btn" aria-label="Clear the history of links.">
+        clear
+      </button>
+    </div>
+    <ul id="history" class="history" hidden></ul>
 
   </main>
 
