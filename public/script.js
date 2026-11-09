@@ -256,13 +256,16 @@ function tweetThumbnail(tweet) {
   return tweet.author.avatar;
 }
 
-function renderPhotos(photos, photoIndex) {
+// A /photo/N link shares just that photo, so only it is shown.
+function renderPhotos(allPhotos, photoIndex) {
   const photosEl = document.getElementById('tweet-photos');
   photosEl.innerHTML = '';
-  photosEl.hidden = !photos;
-  if (!photos) {
+  photosEl.hidden = !allPhotos;
+  if (!allPhotos) {
     return;
   }
+  const photos =
+    photoIndex != null ? [allPhotos[Math.min(photoIndex, allPhotos.length - 1)]] : allPhotos;
   photosEl.dataset.count = photos.length;
   photosEl.style.setProperty('--ratio', photos[0].width / photos[0].height);
   if (photos.length === 1) {
@@ -272,13 +275,13 @@ function renderPhotos(photos, photoIndex) {
     backdrop.alt = '';
     photosEl.appendChild(backdrop);
   }
-  photos.forEach((photo, i) => {
+  photos.forEach((photo) => {
     const a = document.createElement('a');
     a.href = mediaUrl(photo.url);
     a.target = '_blank';
     a.rel = 'noopener';
     const img = document.createElement('img');
-    img.className = 'tweet-photo' + (photoIndex === i ? ' tweet-photo-selected' : '');
+    img.className = 'tweet-photo';
     img.src = mediaUrl(photo.url);
     img.alt = '';
     a.appendChild(img);

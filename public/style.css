@@ -732,16 +732,6 @@ iframe.youtube-player {
   object-fit: cover;
 }
 
-/* The photo a /photo/N link picked gets an accent ring. An inset shadow is
- * used because, unlike outline, it follows border-radius. */
-.tweet-photo-selected {
-  box-shadow: inset 0 0 0 2px var(--phib-accent);
-}
-
-.tweet-photos[data-count='1'] .tweet-photo-selected {
-  border-radius: 10px;
-}
-
 /* The quoted post: a smaller tweet in a box that opens its own phib page. */
 .tweet-quote {
   display: block;
