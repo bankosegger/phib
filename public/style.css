@@ -52,6 +52,8 @@ html {
   text-size-adjust: 100%;
   scrollbar-width: thin;
   scrollbar-color: var(--phib-linen) transparent;
+  /* No sideways wobble if something is a pixel too wide. */
+  overflow-x: clip;
 }
 
 body {
@@ -61,7 +63,10 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 100dvh;
+  /* svh stays put when the mobile URL bar collapses; dvh would resize the
+   * page mid-scroll. */
+  min-height: 100vh;
+  min-height: 100svh;
   background: var(--phib-canvas);
   color: var(--phib-ink);
   font-family: var(--phib-font);
@@ -563,7 +568,7 @@ form {
 .tweet-layout .comments {
   position: sticky;
   top: 1rem;
-  max-height: calc(100dvh - 2rem);
+  max-height: calc(100svh - 2rem);
   overflow-y: auto;
   overscroll-behavior: contain;
 }
@@ -1311,5 +1316,17 @@ iframe.youtube-player {
 @media (max-width: 520px) {
   .admin-stats {
     flex-direction: column;
+  }
+}
+
+/* Touch screens: one page scroll, nothing nested, and a cheaper blur. */
+@media (max-width: 860px), (hover: none) {
+  .history {
+    max-height: none;
+    overflow-y: visible;
+  }
+
+  .tweet-media-backdrop {
+    filter: blur(12px) brightness(0.5);
   }
 }
