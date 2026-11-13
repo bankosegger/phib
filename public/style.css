@@ -581,6 +581,8 @@ form {
   .tweet-layout .comments {
     position: static;
     max-height: none;
+    overflow: visible;
+    overscroll-behavior: auto;
   }
 }
 
@@ -1321,6 +1323,13 @@ iframe.youtube-player {
 
 /* Touch screens: one page scroll, nothing nested, and a cheaper blur. */
 @media (max-width: 860px), (hover: none) {
+  .tweet-layout .comments {
+    position: static;
+    max-height: none;
+    overflow: visible;
+    overscroll-behavior: auto;
+  }
+
   .history {
     max-height: none;
     overflow-y: visible;
