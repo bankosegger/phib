@@ -315,6 +315,31 @@ app.get(/^\/(watch|shorts\/[\w-]{11})\/?$/, (req, res, next) => {
   sendYouTube(res, next, `https://www.youtube.com${req.originalUrl}`);
 });
 
+// Links saved before badges were stored get them the first time they open,
+// saved back so later opens stay a plain read. The rest of the post stays as it
+// was saved. If the post is gone or FxTwitter is slow, it shows without them
+// this time and tries again on the next open.
+async function addBadges(code, record) {
+  const { tweet } = record;
+  try {
+    // Links saved before tweet ids were stored only have the tweet url.
+    const id = tweet.id || tweet.url.match(/\/status\/(\d+)/)[1];
+    const { tweet: fresh } = await resolveTweet({ id }, { signal: AbortSignal.timeout(3000) });
+    tweet.author.verified = fresh.author.verified;
+    tweet.author.affiliate = fresh.author.affiliate;
+    if (tweet.quote && fresh.quote && fresh.quote.id === tweet.quote.id) {
+      tweet.quote.author.verified = fresh.quote.author.verified;
+      tweet.quote.author.affiliate = fresh.quote.author.affiliate;
+    }
+    // xx keeps a link deleted in the meantime from coming back.
+    await redis.set(`url:${code}`, record, { xx: true });
+  } catch (err) {
+    if (!(err instanceof TwitterError)) {
+      console.error(err);
+    }
+  }
+}
+
 app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
@@ -330,10 +355,14 @@ app.get('/:code', async (req, res, next) => {
       }
       return next();
     }
-    const { target, tweet, youtube } = parseRecord(record);
+    const data = parseRecord(record);
+    const { target, tweet, youtube } = data;
     // Awaited because Vercel can freeze the function as soon as the response is sent.
     await redis.incr(`clicks:${req.params.code}`).catch((err) => console.error(err));
     if (tweet) {
+      if (!('verified' in tweet.author)) {
+        await addBadges(req.params.code, data);
+      }
       return res.send(renderWatchPage({ target, tweet }));
     }
     if (youtube) {
