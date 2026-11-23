@@ -603,13 +603,14 @@ form {
 }
 
 .tweet-author {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 0.625rem;
   min-width: 0;
 }
 
-.tweet-author > :last-child {
+.tweet-author-names {
   min-width: 0;
 }
 
@@ -619,6 +620,13 @@ form {
   border-radius: 50%;
   flex-shrink: 0;
   background: var(--phib-box-line);
+}
+
+/* Businesses have square avatars, as on x.com. */
+.tweet-avatar[data-shape='square'],
+.comment-avatar[data-shape='square'],
+.profile-avatar[data-shape='square'] {
+  border-radius: 20%;
 }
 
 .tweet-name {
@@ -829,7 +837,7 @@ iframe.youtube-player {
   gap: 0.375rem;
 }
 
-.tweet-quote .tweet-author > span {
+.tweet-quote .tweet-author-names {
   display: flex;
   align-items: baseline;
   gap: 0.375rem;
@@ -841,6 +849,9 @@ iframe.youtube-player {
 }
 
 .tweet-quote .tweet-handle {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -880,6 +891,764 @@ iframe.youtube-player {
   background: #000;
 }
 
+.tweet-quote-thumb {
+  position: relative;
+  display: block;
+}
+
+.tweet-quote-images[data-sensitive] .tweet-quote-image {
+  filter: blur(10px);
+}
+
+.tweet-quote-unavailable {
+  color: var(--phib-muted);
+  font-size: 0.8125rem;
+}
+
+/* A quote's link preview is always the small kind. */
+.tweet-quote .post-card {
+  display: flex;
+  margin-top: 0.5rem;
+}
+
+.tweet-quote .post-card[data-size] .post-card-image {
+  width: 4rem;
+  height: auto;
+  min-height: 4rem;
+  aspect-ratio: 1;
+  flex-shrink: 0;
+  border-right: 1px solid var(--phib-box-line);
+}
+
+/* Counts under a quote or the post a reply answers. */
+.compact-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.875rem;
+  margin-top: 0.5rem;
+  color: var(--phib-muted);
+  font-size: 0.6875rem;
+}
+
+.compact-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.compact-stat svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Post extras ------------------------------------------------------------- */
+
+.protected-badge {
+  width: 0.875rem;
+  height: 0.875rem;
+  max-width: none;
+  fill: none;
+  stroke: var(--phib-muted);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.post-repost {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin: 0 0 0.625rem;
+  color: var(--phib-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.post-repost a {
+  color: inherit;
+}
+
+.post-repost a:hover {
+  color: var(--phib-ink);
+}
+
+.post-repost svg,
+.profile-facts svg,
+.post-note-title svg {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* The post a reply answers sits above it, joined to it by a line from its
+ * avatar, as in a thread on x.com. */
+.post-parent {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  column-gap: 0.625rem;
+  padding-bottom: 0.5rem;
+  color: var(--phib-ink);
+  text-decoration: none;
+}
+
+.post-parent:hover {
+  text-decoration: none;
+}
+
+.post-parent:hover .tweet-name {
+  text-decoration: underline;
+}
+
+.post-parent-gutter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.post-parent-gutter::after {
+  content: "";
+  flex: 1;
+  width: 2px;
+  min-height: 0.5rem;
+  margin-top: 4px;
+  border-radius: 1px;
+  background: var(--phib-linen);
+}
+
+.post-parent-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.post-parent-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.375rem;
+  min-width: 0;
+}
+
+.post-parent .tweet-handle {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.post-parent .tweet-text {
+  display: -webkit-box;
+  margin-top: 0.125rem;
+  font-size: 0.8125rem;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 6;
+  overflow: hidden;
+}
+
+.post-parent .tweet-quote-images {
+  margin-top: 0.375rem;
+}
+
+.post-replying,
+.post-stale {
+  margin: 0.5rem 0 0;
+  color: var(--phib-muted);
+  font-size: 0.75rem;
+}
+
+.post-replying a {
+  color: var(--phib-ink);
+}
+
+.post-stale {
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  background: #ffffff08;
+  box-shadow: inset 0 0 0 1px var(--phib-box-line);
+}
+
+.post-stale a {
+  color: var(--phib-ink);
+  text-decoration: underline;
+}
+
+/* Links in posts, replies, notes and bios: underlined, in phib's own colors. */
+.tweet .tweet-text a,
+.comment-text a,
+.post-note-text a,
+.profile-bio a {
+  text-decoration: underline;
+  text-decoration-color: var(--phib-linen);
+  text-underline-offset: 2px;
+}
+
+.tweet .tweet-text a:hover,
+.comment-text a:hover,
+.post-note-text a:hover,
+.profile-bio a:hover {
+  text-decoration-color: var(--phib-muted);
+}
+
+/* Long posts fold after a dozen lines. */
+.tweet-text.is-clamped {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 12;
+  overflow: hidden;
+}
+
+.text-more,
+.post-translate {
+  display: block;
+  margin: 0.375rem 0 0;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--phib-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.text-more:hover,
+.post-translate:hover {
+  background: none;
+  color: var(--phib-ink);
+  text-decoration: underline;
+}
+
+.text-more:active,
+.post-translate:active {
+  transform: none;
+}
+
+.post-translation {
+  margin-top: 0.5rem;
+  padding-left: 0.75rem;
+  border-left: 2px solid var(--phib-box-line);
+}
+
+.post-translation-label {
+  margin: 0;
+  color: var(--phib-muted);
+  font-size: 0.6875rem;
+}
+
+.post-translation .tweet-text {
+  margin-top: 0.25rem;
+}
+
+/* The author's profile, like x.com's hover card: it opens after a moment's
+ * hover, or straight away when the avatar is tapped or focused. */
+.author-avatar-btn {
+  display: flex;
+  flex-shrink: 0;
+  padding: 0;
+  border-radius: 50%;
+  background: none;
+  box-shadow: none;
+}
+
+.author-avatar-btn:hover {
+  background: none;
+}
+
+.author-avatar-btn:active {
+  transform: none;
+}
+
+.profile-card {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 0;
+  z-index: 10;
+  width: min(300px, 100cqw);
+  border-radius: 12px;
+  background: var(--phib-box);
+  box-shadow:
+    inset 0 0 0 1px var(--phib-box-line),
+    0 12px 32px #000000a6;
+  /* Hiding is instant, so the card can't flash while the page loads; only
+   * showing it fades in. */
+  visibility: hidden;
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+/* Bridges the gap to the card, so it stays open on the way over. */
+.profile-card::before {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 100%;
+  left: 0;
+  height: 0.5rem;
+}
+
+.tweet-author:hover .profile-card {
+  visibility: visible;
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 0.15s ease 0.4s,
+    transform 0.15s var(--phib-ease) 0.4s,
+    visibility 0s linear 0.4s;
+}
+
+.tweet-author:focus-within .profile-card {
+  visibility: visible;
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s var(--phib-ease),
+    visibility 0s;
+}
+
+.profile-banner {
+  display: block;
+  width: 100%;
+  aspect-ratio: 3 / 1;
+  object-fit: cover;
+  border-radius: 12px 12px 0 0;
+  background: var(--phib-box-line);
+}
+
+.profile-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 0 0.875rem 0.875rem;
+}
+
+.profile-avatar {
+  width: 56px;
+  height: 56px;
+  margin: -28px 0 0.375rem;
+  border: 3px solid var(--phib-box);
+  border-radius: 50%;
+  background: var(--phib-box-line);
+}
+
+.profile-body .tweet-name-row {
+  max-width: 100%;
+}
+
+.profile-body .tweet-name {
+  font-size: 0.875rem;
+}
+
+.profile-bio {
+  margin: 0.5rem 0 0;
+  font-size: 0.8125rem;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.profile-facts,
+.profile-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.875rem;
+  margin: 0.5rem 0 0;
+  color: var(--phib-muted);
+  font-size: 0.75rem;
+}
+
+.profile-facts > * {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.profile-facts a {
+  color: var(--phib-muted);
+}
+
+.profile-facts a:hover {
+  color: var(--phib-ink);
+}
+
+.profile-counts strong {
+  color: var(--phib-ink);
+  font-weight: 600;
+}
+
+/* Media extras ------------------------------------------------------------- */
+
+.media-tile {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  background: #000;
+}
+
+.media-tile > a {
+  display: block;
+  height: 100%;
+}
+
+.tweet-photos[data-count='1'] .media-tile {
+  display: contents;
+}
+
+/* Labels over media: GIF or a video's length bottom left, ALT bottom right
+ * (top right over a video's controls). */
+.media-badge,
+.alt-badge {
+  position: absolute;
+  bottom: 8px;
+  z-index: 2;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #000000b3;
+  box-shadow: none;
+  color: #fff;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1.4;
+  letter-spacing: 0.02em;
+}
+
+.media-badge {
+  left: 8px;
+  pointer-events: none;
+}
+
+.alt-badge {
+  right: 8px;
+}
+
+.alt-badge:hover {
+  background: #000000e6;
+  color: #fff;
+}
+
+.alt-badge:active {
+  transform: none;
+}
+
+.alt-text {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 1;
+  max-height: 100%;
+  overflow-y: auto;
+  padding: 0.75rem 3.5rem 0.75rem 0.75rem;
+  background: #000000d9;
+  color: #fff;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  white-space: pre-line;
+}
+
+.tweet-media:has(> video[controls]) > .alt-badge {
+  top: 8px;
+  bottom: auto;
+}
+
+.tweet-media:has(> video[controls]) > .alt-text {
+  top: 0;
+  bottom: auto;
+}
+
+.media-play,
+.thumb-play {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.play-icon {
+  width: 36px;
+  height: 36px;
+  padding: 9px;
+  border-radius: 50%;
+  background: #000000a6;
+  fill: #fff;
+}
+
+.thumb-play .play-icon {
+  width: 22px;
+  height: 22px;
+  padding: 5px;
+}
+
+/* The post's other media, in small tiles under the video a link picked. */
+.media-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.media-strip .media-tile {
+  width: 4.5rem;
+  height: 4.5rem;
+  overflow: hidden;
+  border-radius: 8px;
+}
+
+.media-strip .media-badge {
+  bottom: 4px;
+  left: 4px;
+  padding: 0 4px;
+  font-size: 0.625rem;
+}
+
+.media-strip .alt-badge {
+  display: none;
+}
+
+.media-strip .play-icon {
+  width: 26px;
+  height: 26px;
+  padding: 6px;
+}
+
+/* Possibly sensitive media stays blurred until Show is clicked. */
+.sensitive {
+  position: relative;
+  margin-top: 0.75rem;
+  overflow: hidden;
+  border-radius: 10px;
+}
+
+.sensitive > .tweet-media:first-child {
+  margin-top: 0;
+}
+
+.sensitive:not(.revealed) > :not(.sensitive-cover) {
+  filter: blur(32px) brightness(0.6);
+  pointer-events: none;
+  user-select: none;
+}
+
+.sensitive.revealed > .sensitive-cover {
+  display: none;
+}
+
+.sensitive-cover {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.625rem;
+  padding: 1rem;
+  color: var(--phib-ink);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  text-align: center;
+}
+
+.sensitive-cover p {
+  margin: 0;
+}
+
+/* Link previews: a wide image above the title, or a small square one beside
+ * it. */
+.post-card {
+  display: block;
+  margin: 0.75rem 0 0;
+  overflow: hidden;
+  border: 1px solid var(--phib-box-line);
+  border-radius: 10px;
+  color: var(--phib-ink);
+  text-decoration: none;
+  transition: background 0.16s ease;
+}
+
+a.post-card:hover {
+  text-decoration: none;
+  background: #ffffff08;
+}
+
+.post-card-image {
+  display: block;
+  width: 100%;
+  aspect-ratio: var(--ratio, 1.91);
+  object-fit: cover;
+  background: #000;
+}
+
+.post-card-body {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.125rem;
+  min-width: 0;
+  padding: 0.625rem 0.75rem;
+}
+
+.post-card-domain {
+  color: var(--phib-muted);
+  font-size: 0.6875rem;
+}
+
+.post-card-title,
+.post-card-description {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.post-card-title {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.post-card-description {
+  color: var(--phib-muted);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.post-card[data-size='small'] {
+  display: flex;
+  align-items: stretch;
+}
+
+.post-card[data-size='small'] .post-card-image {
+  width: 5.5rem;
+  height: auto;
+  min-height: 5.5rem;
+  aspect-ratio: 1;
+  flex-shrink: 0;
+  border-right: 1px solid var(--phib-box-line);
+}
+
+/* Polls show their results, the leading choice in bold. */
+.post-poll {
+  margin: 0.75rem 0 0;
+}
+
+.poll-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.poll-choice {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.375rem 0.625rem;
+  overflow: hidden;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+}
+
+.poll-bar {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  border-radius: 6px;
+  background: var(--phib-stone);
+}
+
+.poll-leading {
+  font-weight: 600;
+}
+
+.poll-leading .poll-bar {
+  background: var(--phib-linen);
+}
+
+.poll-label,
+.poll-percentage {
+  position: relative;
+}
+
+.poll-label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.poll-percentage {
+  flex-shrink: 0;
+}
+
+.poll-meta {
+  margin: 0.5rem 0 0;
+  color: var(--phib-muted);
+  font-size: 0.75rem;
+}
+
+/* Community notes. */
+.post-note {
+  margin: 0.75rem 0 0;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--phib-box-line);
+  border-radius: 10px;
+  background: #ffffff05;
+}
+
+.post-note-title {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin: 0 0 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.post-note-text {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.post-edited {
+  color: var(--phib-muted);
+}
+
+.video-quality {
+  padding: 0 0.125rem;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--phib-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.video-quality:hover {
+  color: var(--phib-ink);
+}
+
+.video-quality option {
+  background: var(--phib-box);
+  color: var(--phib-ink);
+}
+
 .tweet-meta {
   margin: 0.75rem 0 0;
   color: var(--phib-muted);
@@ -896,7 +1665,9 @@ iframe.youtube-player {
 
 .tweet-stats {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
+  gap: 0.5rem;
   margin-top: 0.75rem;
   padding: 0.625rem 0.25rem 0;
   border-top: 1px solid var(--phib-box-line);
@@ -1069,10 +1840,35 @@ iframe.youtube-player {
   overflow-wrap: anywhere;
 }
 
+.comment-text:empty {
+  display: none;
+}
+
+/* A reply's photos, videos, link preview or quoted post. It's a size
+ * container like the post, so its media frames size to its width. */
+.comment-attachments {
+  container-type: inline-size;
+  margin-top: 0.5rem;
+}
+
+.comment-attachments .tweet-media {
+  --media-height: 320px;
+}
+
+.comment-attachments .tweet-quote,
+.comment-attachments .post-card {
+  margin-top: 0.5rem;
+}
+
+.comment-attachments > :first-child {
+  margin-top: 0;
+}
+
 .comment-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 1.25rem;
+  gap: 0.25rem 1rem;
   margin-top: 0.375rem;
 }
 
@@ -1112,6 +1908,24 @@ iframe.youtube-player {
 
 .comment-more a {
   color: var(--phib-muted);
+}
+
+.comments-next {
+  display: block;
+  margin-top: 0.75rem;
+  padding: 0;
+  background: none;
+  box-shadow: none;
+  border-radius: 0;
+  color: var(--phib-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.comments-next:hover {
+  background: none;
+  color: var(--phib-ink);
+  text-decoration: underline;
 }
 
 .comments-more {

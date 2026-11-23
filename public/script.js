@@ -10,6 +10,7 @@ const historyBarEl = document.getElementById('history-bar');
 const historyToggleEl = document.getElementById('history-toggle');
 const historyCountEl = document.getElementById('history-count');
 const tweetLayoutEl = document.getElementById('tweet-layout');
+const tweetPostEl = document.getElementById('tweet-post');
 const commentsEl = document.getElementById('comments');
 const youtubeLayoutEl = document.getElementById('youtube-layout');
 const choiceEl = document.getElementById('choice');
@@ -160,7 +161,7 @@ function renderHistory() {
 
     const thumb = document.createElement('div');
     thumb.className = 'history-thumb';
-    const thumbnail = item.tweet ? item.tweet.thumbnail && mediaUrl(item.tweet.thumbnail) : item.youtube?.thumbnail;
+    const thumbnail = item.tweet ? item.tweet.thumbnail && PhibPost.imageUrl(item.tweet.thumbnail) : item.youtube?.thumbnail;
     if (thumbnail) {
       const img = document.createElement('img');
       img.src = thumbnail;
@@ -196,22 +197,14 @@ function renderHistory() {
   }
 }
 
-function formatCount(n) {
-  return new Intl.NumberFormat('en', { notation: 'compact' }).format(n);
-}
-
-// twimg.com is blocked as a third-party tracker by Firefox strict mode and many
-// content blockers, so Twitter media is loaded through phib's /media proxy.
-function mediaUrl(value) {
-  return `/media?url=${encodeURIComponent(value)}`;
-}
-
-function hideVideo() {
-  const videoEl = document.getElementById('tweet-video');
-  videoEl.pause();
-  videoEl.removeAttribute('src');
-  videoEl.load();
-  videoEl.parentElement.hidden = true;
+// Stops the post's videos downloading before they go, then empties the post.
+function clearPost() {
+  for (const videoEl of tweetPostEl.querySelectorAll('video')) {
+    videoEl.pause();
+    videoEl.removeAttribute('src');
+    videoEl.load();
+  }
+  tweetPostEl.innerHTML = '';
 }
 
 function renderYouTube(youtube) {
@@ -238,146 +231,24 @@ function renderYouTube(youtube) {
 }
 
 function hideTweet() {
-  hideVideo();
+  clearPost();
   tweetLayoutEl.hidden = true;
   clearComments(commentsEl);
 }
 
-// The picture that stands for a tweet in the history. A /photo/N link stands
-// for that photo.
-function tweetThumbnail(tweet) {
-  if (tweet.video) {
-    return tweet.video.thumbnail;
-  }
-  if (tweet.photos) {
-    const index = tweet.photoIndex != null ? Math.min(tweet.photoIndex, tweet.photos.length - 1) : 0;
-    return tweet.photos[index].url;
-  }
-  return tweet.author.avatar;
-}
-
-// A /photo/N link shares just that photo, so only it is shown.
-function renderPhotos(allPhotos, photoIndex) {
-  const photosEl = document.getElementById('tweet-photos');
-  photosEl.innerHTML = '';
-  photosEl.hidden = !allPhotos;
-  if (!allPhotos) {
-    return;
-  }
-  const photos =
-    photoIndex != null ? [allPhotos[Math.min(photoIndex, allPhotos.length - 1)]] : allPhotos;
-  photosEl.dataset.count = photos.length;
-  photosEl.style.setProperty('--ratio', photos[0].width / photos[0].height);
-  if (photos.length === 1) {
-    const backdrop = document.createElement('img');
-    backdrop.className = 'tweet-media-backdrop';
-    backdrop.src = mediaUrl(photos[0].url);
-    backdrop.alt = '';
-    photosEl.appendChild(backdrop);
-  }
-  photos.forEach((photo) => {
-    const a = document.createElement('a');
-    a.href = mediaUrl(photo.url);
-    a.target = '_blank';
-    a.rel = 'noopener';
-    const img = document.createElement('img');
-    img.className = 'tweet-photo';
-    img.src = mediaUrl(photo.url);
-    img.alt = '';
-    a.appendChild(img);
-    photosEl.appendChild(a);
-  });
-}
-
-// The quoted post, linking to its own phib page; markup matches lib/watch.js.
-function renderQuote(quote) {
-  const quoteEl = document.getElementById('tweet-quote');
-  quoteEl.innerHTML = '';
-  quoteEl.hidden = !quote;
-  if (!quote) {
-    return;
-  }
-  quoteEl.href = `/${quote.author.handle}/status/${quote.id}`;
-
-  const author = document.createElement('span');
-  author.className = 'tweet-author';
-  const avatar = document.createElement('img');
-  avatar.className = 'tweet-avatar';
-  avatar.src = mediaUrl(quote.author.avatar);
-  avatar.alt = '';
-  const names = document.createElement('span');
-  const nameRow = document.createElement('span');
-  nameRow.className = 'tweet-name-row';
-  const name = document.createElement('span');
-  name.className = 'tweet-name';
-  name.textContent = quote.author.name;
-  nameRow.append(name, renderBadges(quote.author, { link: false }));
-  const handle = document.createElement('span');
-  handle.className = 'tweet-handle';
-  handle.textContent = `@${quote.author.handle}`;
-  names.append(nameRow, handle);
-  author.append(avatar, names);
-
-  const text = document.createElement('span');
-  text.className = 'tweet-text';
-  text.textContent = quote.text;
-  quoteEl.append(author, text);
-
-  if (quote.images) {
-    const images = document.createElement('span');
-    images.className = 'tweet-quote-images';
-    for (const image of quote.images) {
-      const img = document.createElement('img');
-      img.className = 'tweet-quote-image';
-      img.src = mediaUrl(image.url);
-      img.alt = '';
-      images.appendChild(img);
-    }
-    quoteEl.appendChild(images);
-  }
-}
-
-function renderTweet(tweet, videoUrl) {
+// The post as public/post.js renders it, the same as on the page the short link
+// opens. target is where the link points: the picked video or photo file, or
+// the post.
+function renderTweet(tweet, target) {
   if (!tweet) {
     hideTweet();
     return;
   }
-  const { author, stats, video } = tweet;
-
-  if (video) {
-    const videoEl = document.getElementById('tweet-video');
-    videoEl.parentElement.style.setProperty('--ratio', video.width / video.height);
-    videoEl.poster = mediaUrl(video.thumbnail);
-    document.getElementById('tweet-video-backdrop').src = mediaUrl(video.thumbnail);
-    videoEl.src = mediaUrl(videoUrl);
-    videoEl.parentElement.hidden = false;
-  } else {
-    hideVideo();
-  }
-  renderPhotos(tweet.photos, tweet.photoIndex);
-  document.getElementById('tweet-link').href = tweet.url;
-
-  document.getElementById('tweet-avatar').src = mediaUrl(author.avatar);
-  const nameEl = document.getElementById('tweet-name');
-  nameEl.href = author.url;
-  nameEl.textContent = author.name;
-  nameEl.parentElement.replaceChildren(nameEl, renderBadges(author));
-  document.getElementById('tweet-handle').textContent = `@${author.handle}`;
-
-  document.getElementById('tweet-text').textContent = tweet.text;
-  renderQuote(tweet.quote);
-
-  document.getElementById('tweet-date').textContent = new Date(tweet.createdAt).toLocaleDateString(undefined, {
-    dateStyle: 'medium',
-  });
-  const counts = { replies: stats.replies, reposts: stats.retweets, likes: stats.likes, views: stats.views };
-  for (const [kind, count] of Object.entries(counts)) {
-    const countEl = document.getElementById(`tweet-${kind}`);
-    countEl.textContent = count == null ? '' : formatCount(count);
-    countEl.parentElement.hidden = count == null;
-  }
-
+  clearPost();
+  tweetPostEl.innerHTML = PhibPost.renderPost(tweet, { target });
   tweetLayoutEl.hidden = false;
+  // After it's shown, since Show more measures the text.
+  PhibPost.enhance(tweetPostEl);
   showComments(commentsEl, tweet.id, tweet.url);
 }
 
@@ -407,7 +278,7 @@ function showResult(data) {
     tweet: data.tweet && {
       handle: data.tweet.author.handle,
       text: data.tweet.text.slice(0, 140),
-      thumbnail: tweetThumbnail(data.tweet),
+      thumbnail: PhibPost.thumbnail(data.tweet, data.target),
     },
     youtube: data.youtube && {
       channel: data.youtube.author.name,

@@ -6,7 +6,15 @@ const express = require('express');
 const { nanoid } = require('nanoid');
 const redis = require('./lib/redis');
 const { Readable } = require('stream');
-const { parseStatus, resolveTweet, fetchReplies, TwitterError, isTwimg } = require('./lib/twitter');
+const {
+  parseStatus,
+  resolveTweet,
+  fetchReplies,
+  translateTweet,
+  TwitterError,
+  isTwimg,
+  TWEET_VERSION,
+} = require('./lib/twitter');
 const { parseVideo, resolveVideo, YouTubeError, VIDEO_ID } = require('./lib/youtube');
 const { renderWatchPage, renderYouTubePage } = require('./lib/watch');
 
@@ -125,15 +133,40 @@ app.get('/api/replies/:id', async (req, res) => {
   if (!/^\d{1,20}$/.test(req.params.id)) {
     return res.status(400).json({ error: 'Invalid tweet id.' });
   }
+  const { cursor } = req.query;
+  if (cursor !== undefined && (typeof cursor !== 'string' || !/^[\w+/=-]{1,4096}$/.test(cursor))) {
+    return res.status(400).json({ error: 'Invalid cursor.' });
+  }
   try {
-    const replies = await fetchReplies(req.params.id);
+    const page = await fetchReplies(req.params.id, cursor);
     res.set('Cache-Control', 'public, max-age=300');
-    res.json({ replies });
+    res.json(page);
   } catch (err) {
     if (!(err instanceof TwitterError)) {
       console.error(err);
     }
     res.status(502).json({ error: 'Could not load replies.' });
+  }
+});
+
+app.get('/api/translate/:id', async (req, res) => {
+  const { lang } = req.query;
+  if (!/^\d{1,20}$/.test(req.params.id)) {
+    return res.status(400).json({ error: 'Invalid tweet id.' });
+  }
+  if (typeof lang !== 'string' || !/^[a-z]{2,3}(-[a-z]{2,4})?$/i.test(lang)) {
+    return res.status(400).json({ error: 'Pass the language to translate into, like lang=en.' });
+  }
+  try {
+    const translation = await translateTweet(req.params.id, lang.toLowerCase());
+    res.set('Cache-Control', 'public, max-age=86400');
+    res.json({ translation });
+  } catch (err) {
+    if (err instanceof TwitterError) {
+      return res.status(404).json({ error: err.message });
+    }
+    console.error(err);
+    res.status(502).json({ error: 'Could not translate this post.' });
   }
 });
 
@@ -156,7 +189,14 @@ app.get('/api', (req, res) => {
       {
         method: 'GET',
         path: '/api/replies/:tweetId',
-        description: 'Top replies of a Twitter/X post.',
+        query: { cursor: 'optional, the cursor of the previous page' },
+        description: 'A page of the top replies of a Twitter/X post, and the cursor of the next page (null after the last one).',
+      },
+      {
+        method: 'GET',
+        path: '/api/translate/:tweetId',
+        query: { lang: 'the language to translate into, like en' },
+        description: 'The text of a Twitter/X post, translated.',
       },
     ],
   });
@@ -186,9 +226,10 @@ app.get('/api/admin/links', requireAdmin, async (req, res) => {
   try {
     const codes = await listCodes();
     const links = [];
-    // Keeps each Upstash request well under its size limit.
-    for (let i = 0; i < codes.length; i += 500) {
-      const batch = codes.slice(i, i + 500);
+    // Keeps each Upstash request, and its answer, well under the size limit:
+    // tweet links store a few kilobytes of the post each.
+    for (let i = 0; i < codes.length; i += 100) {
+      const batch = codes.slice(i, i + 100);
       const values = await redis.mget(...batch.flatMap((code) => [`url:${code}`, `clicks:${code}`]));
       batch.forEach((code, j) => {
         const record = values[j * 2];
@@ -315,22 +356,23 @@ app.get(/^\/(watch|shorts\/[\w-]{11})\/?$/, (req, res, next) => {
   sendYouTube(res, next, `https://www.youtube.com${req.originalUrl}`);
 });
 
-// Links saved before badges were stored get them the first time they open,
-// saved back so later opens stay a plain read. The rest of the post stays as it
-// was saved. If the post is gone or FxTwitter is slow, it shows without them
-// this time and tries again on the next open.
-async function addBadges(code, record) {
+// Links saved before the current version of the tweet details (TWEET_VERSION)
+// are looked up again the first time they open, so they show everything newer
+// links do: badges, link previews, every photo and video, and so on. The fresh
+// details are saved back, so later opens stay a plain read, and the link keeps
+// pointing where it did, with the same video or photo picked. If the post is
+// gone or FxTwitter is slow, it shows as saved this time and tries again on the
+// next open.
+async function refreshTweet(code, record) {
   const { tweet } = record;
   try {
     // Links saved before tweet ids were stored only have the tweet url.
     const id = tweet.id || tweet.url.match(/\/status\/(\d+)/)[1];
-    const { tweet: fresh } = await resolveTweet({ id }, { signal: AbortSignal.timeout(3000) });
-    tweet.author.verified = fresh.author.verified;
-    tweet.author.affiliate = fresh.author.affiliate;
-    if (tweet.quote && fresh.quote && fresh.quote.id === tweet.quote.id) {
-      tweet.quote.author.verified = fresh.quote.author.verified;
-      tweet.quote.author.affiliate = fresh.quote.author.affiliate;
-    }
+    const { tweet: fresh } = await resolveTweet(
+      { id },
+      { signal: AbortSignal.timeout(3000), pick: record.target }
+    );
+    record.tweet = fresh;
     // xx keeps a link deleted in the meantime from coming back.
     await redis.set(`url:${code}`, record, { xx: true });
   } catch (err) {
@@ -356,14 +398,14 @@ app.get('/:code', async (req, res, next) => {
       return next();
     }
     const data = parseRecord(record);
-    const { target, tweet, youtube } = data;
+    const { target, youtube } = data;
     // Awaited because Vercel can freeze the function as soon as the response is sent.
     await redis.incr(`clicks:${req.params.code}`).catch((err) => console.error(err));
-    if (tweet) {
-      if (!('verified' in tweet.author)) {
-        await addBadges(req.params.code, data);
+    if (data.tweet) {
+      if (data.tweet.v !== TWEET_VERSION) {
+        await refreshTweet(req.params.code, data);
       }
-      return res.send(renderWatchPage({ target, tweet }));
+      return res.send(renderWatchPage({ target, tweet: data.tweet }));
     }
     if (youtube) {
       return res.send(renderYouTubePage({ youtube }));
