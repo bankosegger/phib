@@ -643,6 +643,67 @@ form {
   font-weight: 400;
 }
 
+/* A name and the badges after it: long names shorten, the badges stay. */
+.tweet-name-row {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.author-badges {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.author-badges:empty {
+  display: none;
+}
+
+/* x.com's checkmark colors: blue for people, gold for organizations, grey for governments. */
+.verified-badge {
+  width: 1rem;
+  height: 1rem;
+  max-width: none;
+  color: #1d9bf0;
+}
+
+.verified-badge[data-color="gold"] {
+  color: #e2b719;
+}
+
+.verified-badge[data-color="grey"] {
+  color: #829aab;
+}
+
+.verified-badge .badge-shape {
+  fill: currentColor;
+}
+
+.verified-badge .badge-check {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.affiliate-link {
+  display: flex;
+}
+
+.affiliate-badge {
+  width: 0.9375rem;
+  height: 0.9375rem;
+  max-width: none;
+  border-radius: 3px;
+  object-fit: cover;
+  background: var(--phib-box-line);
+  box-shadow: 0 0 0 1px var(--phib-box-line);
+}
+
 .tweet-text {
   margin: 0.75rem 0 0;
   font-size: 0.875rem;
@@ -778,6 +839,16 @@ iframe.youtube-player {
 
 .tweet-quote .tweet-handle {
   white-space: nowrap;
+}
+
+.tweet-quote .verified-badge {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.tweet-quote .affiliate-badge {
+  width: 0.8125rem;
+  height: 0.8125rem;
 }
 
 .tweet-quote .tweet-text {
@@ -958,6 +1029,15 @@ iframe.youtube-player {
 
 .comment-name:hover {
   text-decoration: underline;
+}
+
+.comment-head .author-badges {
+  align-self: center;
+}
+
+.comment-head .verified-badge {
+  width: 0.875rem;
+  height: 0.875rem;
 }
 
 .comment-handle,

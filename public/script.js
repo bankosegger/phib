@@ -306,13 +306,16 @@ function renderQuote(quote) {
   avatar.src = mediaUrl(quote.author.avatar);
   avatar.alt = '';
   const names = document.createElement('span');
+  const nameRow = document.createElement('span');
+  nameRow.className = 'tweet-name-row';
   const name = document.createElement('span');
   name.className = 'tweet-name';
   name.textContent = quote.author.name;
+  nameRow.append(name, renderBadges(quote.author, { link: false }));
   const handle = document.createElement('span');
   handle.className = 'tweet-handle';
   handle.textContent = `@${quote.author.handle}`;
-  names.append(name, handle);
+  names.append(nameRow, handle);
   author.append(avatar, names);
 
   const text = document.createElement('span');
@@ -358,6 +361,7 @@ function renderTweet(tweet, videoUrl) {
   const nameEl = document.getElementById('tweet-name');
   nameEl.href = author.url;
   nameEl.textContent = author.name;
+  nameEl.parentElement.replaceChildren(nameEl, renderBadges(author));
   document.getElementById('tweet-handle').textContent = `@${author.handle}`;
 
   document.getElementById('tweet-text').textContent = tweet.text;

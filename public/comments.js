@@ -35,6 +35,43 @@ function commentStat(icon, count, label) {
   return stat;
 }
 
+// Lucide's badge-check, filled in the checkmark's color like x.com's.
+// lib/watch.js has the same icon.
+const VERIFIED_ICON =
+  '<path class="badge-shape" d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><path class="badge-check" d="m9 12 2 2 4-4"/>';
+
+// The verified checkmark and affiliate badge that follow an author's name, as
+// on x.com; the same markup as renderBadges in lib/watch.js. Also used by
+// script.js. A quote is a link itself, so its affiliate badge links nowhere.
+function renderBadges(author, { link = true } = {}) {
+  const badges = document.createElement('span');
+  badges.className = 'author-badges';
+  if (author.verified) {
+    badges.innerHTML = `<svg class="verified-badge" viewBox="0 0 24 24" role="img" aria-label="Verified account"><title>Verified account</title>${VERIFIED_ICON}</svg>`;
+    badges.firstChild.dataset.color = author.verified;
+  }
+  const { affiliate } = author;
+  if (affiliate) {
+    const img = document.createElement('img');
+    img.className = 'affiliate-badge';
+    img.src = commentsMediaUrl(affiliate.badge);
+    img.alt = affiliate.name;
+    img.title = affiliate.name;
+    if (link && affiliate.url) {
+      const a = document.createElement('a');
+      a.className = 'affiliate-link';
+      a.href = affiliate.url;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      a.append(img);
+      badges.append(a);
+    } else {
+      badges.append(img);
+    }
+  }
+  return badges;
+}
+
 function pluralReplies(n) {
   return `${formatCompact(n)} ${n === 1 ? 'reply' : 'replies'}`;
 }
@@ -93,7 +130,7 @@ function renderThread(node, seen) {
   const time = document.createElement('span');
   time.className = 'comment-time';
   time.textContent = `· ${formatTimeAgo(node.createdAt)}`;
-  head.append(name, handle, time);
+  head.append(name, renderBadges(node.author), handle, time);
 
   const text = document.createElement('p');
   text.className = 'comment-text';
