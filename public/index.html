@@ -32,7 +32,7 @@
 
     <form id="shorten-form">
       <div class="row">
-        <input type="url" id="url-input" placeholder="https://example.com" required />
+        <input type="url" id="url-input" placeholder="https://example.com" aria-label="Long URL" required />
         <button type="submit">Shorten</button>
       </div>
       <!-- Shown when the pasted link is a Twitter/X post or YouTube video -->
@@ -43,7 +43,7 @@
       </div>
     </form>
 
-    <p id="error" class="error" hidden></p>
+    <p id="error" class="error" role="alert" hidden></p>
 
     <div id="result" class="result" hidden>
       <a id="short-link" target="_blank" rel="noopener"></a>

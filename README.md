@@ -8,12 +8,13 @@ Minimal URL shortener built on Express and Upstash Redis. Runs on Vercel.
 cp .env.example .env   # fill in Upstash credentials, SHORT_DOMAIN and ADMIN_TOKEN
 npm install
 npm start              # http://localhost:3000
+npm test               # runs offline: Redis, FxTwitter and YouTube are stubbed
 ```
 
 ## API
 
 - `GET /api` lists the endpoints below as JSON
-- `POST /api/shorten` with `{ "url": "https://..." }` returns `{ code, shortUrl, target }`
+- `POST /api/shorten` with `{ "url": "https://..." }` (up to 8192 characters) returns `{ code, shortUrl, target }`; a `502` means FxTwitter or YouTube didn't answer, and is worth retrying
 - With `"twitterVideo": true`, Twitter/X status links are looked up via the [FxTwitter API](https://github.com/FxEmbed/FxEmbed): posts with a video or GIF are shortened to the direct `video.twimg.com` file, other posts to the post itself; the response also includes `source` and a `tweet` object. A trailing `/video/N` picks the Nth video, and `/photo/N` the Nth photo: the link is then shortened to its direct image file and only that photo is shown. The `tweet` object has:
   - `author`: name, handle, avatar and profile link; `verified` (`blue`, `gold` or `grey`, the color of their checkmark, or `null`); `affiliate` (the badge of the organization they belong to); `shape` (`square` for the square avatars of businesses); `protected`; and `profile` (bio, location, website, banner, join date and follower, following and post counts)
   - `text` as x.com shows it (short display forms of links, without the @mentions a reply starts with or the link to a quoted post) and `links`, the ranges of it that link to web pages, @mentions, #hashtags and $cashtags; `lang`; `long` for long posts
@@ -31,11 +32,11 @@ npm start              # http://localhost:3000
 
 ## URL mode
 
-Put the short domain in front of any link, e.g. `pb3p.uk/https://x.com/mitsuhiko/status/2113248077532545057`, to open phib with that link shortened. The "Show Twitter/X posts in phib" and "Show YouTube videos in phib" settings from the home page apply.
+Put the short domain in front of any link, e.g. `pb3p.uk/https://x.com/mitsuhiko/status/2113248077532545057`, to open phib with that link shortened. As when pasting a link, Twitter/X posts and YouTube videos first ask whether to make a plain short link or open them in phib.
 
 ## Proxy mode
 
-Replace `x.com` (or `twitter.com`) in a post link with the short domain, e.g. `pb3p.uk/mitsuhiko/status/2113248077532545057`, to see the post in phib without creating a short link. A trailing `/video/N` picks the Nth video; `/photo/N` picks the Nth photo and marks it on the page.
+Replace `x.com` (or `twitter.com`) in a post link with the short domain, e.g. `pb3p.uk/mitsuhiko/status/2113248077532545057` (or `pb3p.uk/i/web/status/...`), to see the post in phib without creating a short link. A trailing `/video/N` picks the Nth video; `/photo/N` picks the Nth photo and marks it on the page.
 
 The same works for YouTube: `pb3p.uk/watch?v=dQw4w9WgXcQ`, `pb3p.uk/shorts/<id>`, or `pb3p.uk/dQw4w9WgXcQ` in place of `youtu.be/dQw4w9WgXcQ`.
 

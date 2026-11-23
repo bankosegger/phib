@@ -5,32 +5,33 @@
 // open. public/post.js renders the badges, linked text, media, link previews
 // and quoted posts, the same way it does for the post.
 
-// Short relative time ("5m", "3h", "2d"), or the date once it's over a week old.
+// Short relative time ("5m", "3h", "2d"), the date once it's over a week old,
+// or nothing when the time is missing.
 function formatTimeAgo(iso) {
-  const seconds = (Date.now() - new Date(iso)) / 1000;
+  const time = new Date(iso).getTime();
+  if (Number.isNaN(time)) return '';
+  const seconds = (Date.now() - time) / 1000;
   if (seconds < 3600) return `${Math.max(1, Math.round(seconds / 60))}m`;
   if (seconds < 86400) return `${Math.round(seconds / 3600)}h`;
   if (seconds < 7 * 86400) return `${Math.round(seconds / 86400)}d`;
-  return new Date(iso).toLocaleDateString(undefined, { dateStyle: 'medium' });
+  return new Date(time).toLocaleDateString(undefined, { dateStyle: 'medium' });
 }
 
-const COMMENT_ICONS = {
-  reply: '<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>',
-  repost:
-    '<path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/>',
-  like: '<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>',
-  views: '<path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/>',
-  bookmark: '<path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/>',
-};
-
-function commentStat(icon, count, label) {
+// A count under a reply, with the post's icon for it (see ICONS in post.js).
+function commentStat(kind, count) {
   const stat = document.createElement('span');
   stat.className = 'comment-stat';
-  stat.title = `${count} ${label}`;
-  stat.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${COMMENT_ICONS[icon]}</svg>`;
+  stat.title = `${count} ${kind}`;
+  stat.innerHTML = PhibPost.icon(kind);
   // x.com leaves out zero counts.
   if (count) stat.append(PhibPost.formatCount(count));
   return stat;
+}
+
+// The reply on x.com. Replies come from FxTwitter, so only web addresses are
+// linked, never javascript: and the like.
+function replyUrl(node) {
+  return PhibPost.safeHref(node.url) || `https://x.com/${encodeURIComponent(node.author.handle)}/status/${node.id}`;
 }
 
 function pluralReplies(n) {
@@ -72,7 +73,7 @@ function renderThread(node, seen, threads) {
   const avatar = document.createElement('img');
   avatar.className = 'comment-avatar';
   avatar.alt = '';
-  avatar.src = PhibPost.imageUrl(node.author.avatar);
+  if (node.author.avatar) avatar.src = PhibPost.imageUrl(node.author.avatar);
   if (node.author.shape) avatar.dataset.shape = node.author.shape;
   const line = document.createElement('button');
   line.type = 'button';
@@ -87,19 +88,23 @@ function renderThread(node, seen, threads) {
   head.className = 'comment-head';
   const name = document.createElement('a');
   name.className = 'comment-name';
-  name.href = node.url;
+  name.href = replyUrl(node);
   name.target = '_blank';
   name.rel = 'noopener';
   name.textContent = node.author.name;
   const handle = document.createElement('span');
   handle.className = 'comment-handle';
   handle.textContent = `@${node.author.handle}`;
-  const time = document.createElement('span');
-  time.className = 'comment-time';
-  time.textContent = `· ${formatTimeAgo(node.createdAt)}`;
   head.append(name);
   head.insertAdjacentHTML('beforeend', PhibPost.renderBadges(node.author));
-  head.append(handle, time);
+  head.append(handle);
+  const ago = formatTimeAgo(node.createdAt);
+  if (ago) {
+    const time = document.createElement('span');
+    time.className = 'comment-time';
+    time.textContent = `· ${ago}`;
+    head.append(time);
+  }
 
   const text = document.createElement('p');
   text.className = 'comment-text';
@@ -112,11 +117,11 @@ function renderThread(node, seen, threads) {
 
   const actions = document.createElement('div');
   actions.className = 'comment-actions';
-  actions.append(commentStat('reply', node.replyCount || 0, 'replies'));
-  actions.append(commentStat('repost', node.reposts || 0, 'reposts'));
-  actions.append(commentStat('like', node.likes || 0, 'likes'));
-  if (node.views != null) actions.append(commentStat('views', node.views, 'views'));
-  if (node.bookmarks != null) actions.append(commentStat('bookmark', node.bookmarks, 'bookmarks'));
+  actions.append(commentStat('replies', node.replyCount || 0));
+  actions.append(commentStat('reposts', node.reposts || 0));
+  actions.append(commentStat('likes', node.likes || 0));
+  if (node.views != null) actions.append(commentStat('views', node.views));
+  if (node.bookmarks != null) actions.append(commentStat('bookmarks', node.bookmarks));
   const toggle = document.createElement('button');
   toggle.type = 'button';
   toggle.className = 'comment-toggle';
@@ -160,7 +165,7 @@ function renderThread(node, seen, threads) {
     more.hidden = left === 0 || collapsed || (node.children.length === 0 && !fetched);
     if (fetched) {
       const link = document.createElement('a');
-      link.href = node.url;
+      link.href = replyUrl(node);
       link.target = '_blank';
       link.rel = 'noopener';
       link.textContent = node.children.length ? `${pluralReplies(left)} more on X` : `View ${pluralReplies(left)} on X`;
@@ -221,7 +226,8 @@ function renderThread(node, seen, threads) {
 
 async function loadComments(section, tweetId, tweetUrl) {
   section.hidden = false;
-  section.innerHTML = '<h2 class="comments-title">Replies</h2><p class="comments-status">Loading replies…</p>';
+  section.innerHTML =
+    '<h2 class="comments-title">Replies</h2><p class="comments-status" role="status">Loading replies…</p>';
   const status = section.querySelector('.comments-status');
 
   let page;
@@ -276,7 +282,7 @@ async function loadComments(section, tweetId, tweetUrl) {
 
   const more = document.createElement('a');
   more.className = 'comments-more';
-  more.href = tweetUrl;
+  more.href = PhibPost.safeHref(tweetUrl) || `https://x.com/i/status/${encodeURIComponent(tweetId)}`;
   more.target = '_blank';
   more.rel = 'noopener';
   more.textContent = 'See all replies on X';

@@ -20,7 +20,7 @@
 
     <form id="login-form">
       <div class="row">
-        <input type="password" id="token-input" placeholder="Admin token" autocomplete="current-password" required />
+        <input type="password" id="token-input" placeholder="Admin token" aria-label="Admin token" autocomplete="current-password" required />
         <button type="submit">Sign in</button>
       </div>
     </form>
@@ -35,7 +35,7 @@
       </div>
 
       <div class="row admin-tools">
-        <input type="search" id="filter-input" placeholder="Filter by code or target" />
+        <input type="search" id="filter-input" placeholder="Filter by code or target" aria-label="Filter links" />
         <button type="button" id="refresh-btn">Refresh</button>
         <button type="button" id="logout-btn">Sign out</button>
       </div>

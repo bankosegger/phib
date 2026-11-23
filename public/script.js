@@ -1,4 +1,5 @@
 const form = document.getElementById('shorten-form');
+const submitBtn = form.querySelector('button[type="submit"]');
 const urlInput = document.getElementById('url-input');
 const errorEl = document.getElementById('error');
 const resultEl = document.getElementById('result');
@@ -21,9 +22,31 @@ const choiceViewBtn = document.getElementById('choice-view');
 const HISTORY_KEY = 'phib-history';
 const QUOTE_KEY = 'phib-quote';
 
+// Browsers that block site data throw on any use of localStorage. phib then
+// just forgets the history and the last quote instead of breaking.
+function readStorage(key) {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeStorage(key, value) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {}
+}
+
+function removeStorage(key) {
+  try {
+    localStorage.removeItem(key);
+  } catch {}
+}
+
 const QUOTES = [
   'Get phibed!',
-  'Phib it!.',
+  'Phib it!',
   'Long story short.',
   'Brevity is the soul of wit. This is very witty.',
   'Your URL called. It wants to lose some weight.',
@@ -52,13 +75,13 @@ const QUOTES = [
 
 // Shows a random quote under the title, never the same one twice in a row.
 function showQuote() {
-  const stored = localStorage.getItem(QUOTE_KEY);
+  const stored = readStorage(QUOTE_KEY);
   const last = stored === null ? -1 : Number(stored);
   let index = Math.floor(Math.random() * QUOTES.length);
   if (index === last) {
     index = (index + 1) % QUOTES.length;
   }
-  localStorage.setItem(QUOTE_KEY, index);
+  writeStorage(QUOTE_KEY, index);
   document.querySelector('.card > .subtitle').textContent = QUOTES[index];
 }
 
@@ -114,18 +137,19 @@ function hideChoice() {
 
 function loadHistory() {
   try {
-    return JSON.parse(localStorage.getItem(HISTORY_KEY)) || [];
+    const items = JSON.parse(readStorage(HISTORY_KEY));
+    return Array.isArray(items) ? items.filter((item) => item && typeof item.shortUrl === 'string') : [];
   } catch {
     return [];
   }
 }
 
 function saveHistory(items) {
-  localStorage.setItem(HISTORY_KEY, JSON.stringify(items.slice(0, 10)));
+  writeStorage(HISTORY_KEY, JSON.stringify(items.slice(0, 10)));
 }
 
 function deleteHistory() {
-  localStorage.removeItem(HISTORY_KEY);
+  removeStorage(HISTORY_KEY);
   renderHistory();
 }
 
@@ -224,7 +248,12 @@ function renderYouTube(youtube) {
   document.getElementById('youtube-backdrop').src = youtube.thumbnail;
   document.getElementById('youtube-title').textContent = youtube.title;
   const channelEl = document.getElementById('youtube-channel');
-  channelEl.href = youtube.author.url;
+  const channelUrl = PhibPost.safeHref(youtube.author.url);
+  if (channelUrl) {
+    channelEl.href = channelUrl;
+  } else {
+    channelEl.removeAttribute('href');
+  }
   channelEl.textContent = youtube.author.name;
   document.getElementById('youtube-link').href = youtube.url;
   youtubeLayoutEl.hidden = false;
@@ -290,16 +319,35 @@ function showResult(data) {
   renderHistory();
 }
 
+// Whether a link is being shortened. Looking up a post takes a moment, and
+// the buttons wait meanwhile, so a second click can't make a second link.
+let busy = false;
+
+function setBusy(value) {
+  busy = value;
+  form.setAttribute('aria-busy', String(value));
+  for (const button of form.querySelectorAll('button')) {
+    button.disabled = value;
+  }
+  submitBtn.textContent = value ? 'Shortening…' : 'Shorten';
+}
+
 // view picks the Twitter/X post or YouTube view over a plain short link.
 async function shorten(view) {
+  if (busy) {
+    return;
+  }
   errorEl.hidden = true;
   const kind = pendingKind;
   hideChoice();
 
   const url = urlInput.value.trim();
 
+  setBusy(true);
+  let res;
+  let data;
   try {
-    const res = await fetch('/api/shorten', {
+    res = await fetch('/api/shorten', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -308,22 +356,31 @@ async function shorten(view) {
         youtubeVideo: view && kind === 'youtube',
       }),
     });
-    const data = await res.json();
-
-    if (!res.ok) {
-      showError(data.error || 'Something went wrong.');
-      return;
-    }
-
-    showResult(data);
-    urlInput.value = '';
+    // Vercel answers timeouts with a page rather than JSON.
+    data = await res.json().catch(() => ({}));
   } catch {
     showError('Could not reach the server. Please try again.');
+    return;
+  } finally {
+    setBusy(false);
+  }
+
+  if (!res.ok) {
+    showError(data.error || 'Something went wrong. Please try again.');
+    return;
+  }
+  showResult(data);
+  // Unless another link was pasted meanwhile.
+  if (urlInput.value.trim() === url) {
+    urlInput.value = '';
   }
 }
 
 form.addEventListener('submit', (e) => {
   e.preventDefault();
+  if (busy) {
+    return;
+  }
   const kind = detectKind(urlInput.value.trim());
   if (kind) {
     errorEl.hidden = true;
@@ -353,13 +410,7 @@ copyBtn.addEventListener('click', async () => {
   }
 });
 
-clearBtn.addEventListener('click', async () => {
-  try {
-    deleteHistory();
-  } catch {
-    console.error('failed to clear history.')
-  }
-});
+clearBtn.addEventListener('click', deleteHistory);
 
 historyToggleEl.addEventListener('click', () => {
   historyOpen = !historyOpen;

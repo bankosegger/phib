@@ -44,12 +44,18 @@
     return isTwimg(value) ? mediaUrl(value) : value;
   }
 
+  // Made once: a page of replies formats hundreds of counts.
+  const COMPACT_NUMBER = new Intl.NumberFormat('en', { notation: 'compact' });
+  const WHOLE_NUMBER = new Intl.NumberFormat('en');
+
   function formatCount(n) {
-    return new Intl.NumberFormat('en', { notation: 'compact' }).format(n);
+    return COMPACT_NUMBER.format(n);
   }
 
+  // The date, or nothing when it's missing.
   function formatDate(iso, locale) {
-    return new Date(iso).toLocaleDateString(locale, { dateStyle: 'medium' });
+    const date = new Date(iso);
+    return Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString(locale, { dateStyle: 'medium' });
   }
 
   function formatDuration(seconds) {
@@ -375,7 +381,7 @@
       })
       .join('');
     const total = poll.total || 0;
-    const meta = [`${new Intl.NumberFormat('en').format(total)} ${total === 1 ? 'vote' : 'votes'}`];
+    const meta = [`${WHOLE_NUMBER.format(total)} ${total === 1 ? 'vote' : 'votes'}`];
     const ends = Date.parse(poll.endsAt);
     if (Number.isFinite(ends)) {
       meta.push(ends > Date.now() ? timeLeft(poll.endsAt) : 'Final results');
@@ -427,7 +433,8 @@
 
   // The name, badges, handle and date of a quote or parent post.
   function renderCompactAuthor(post, locale) {
-    const date = post.createdAt ? ` · ${escapeHtml(formatDate(post.createdAt, locale))}` : '';
+    const formatted = formatDate(post.createdAt, locale);
+    const date = formatted ? ` · ${escapeHtml(formatted)}` : '';
     return `<span class="tweet-name-row"><span class="tweet-name">${escapeHtml(post.author.name)}</span>${renderBadges(post.author, { link: false })}</span><span class="tweet-handle">@${escapeHtml(post.author.handle)}${date}</span>`;
   }
 
@@ -572,8 +579,9 @@
   function renderMeta(post, { target, locale }) {
     const item = pickedMedia(post, target);
     const parts = [];
-    if (post.createdAt) {
-      parts.push(escapeHtml(formatDate(post.createdAt, locale)));
+    const date = formatDate(post.createdAt, locale);
+    if (date) {
+      parts.push(escapeHtml(date));
     }
     if (post.edited) {
       parts.push('<span class="post-edited">Edited</span>');
@@ -773,6 +781,8 @@
 
   return {
     escapeHtml,
+    safeHref,
+    icon,
     mediaUrl,
     imageUrl,
     formatCount,
