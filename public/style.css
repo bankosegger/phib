@@ -690,11 +690,14 @@ form {
   stroke-linejoin: round;
 }
 
-.affiliate-link {
+/* The affiliate badge. Keep "affiliate" out of these class names: EasyList and
+   AdGuard hide every .affiliate-link on any site, which hid the badge for
+   anyone with an ad blocker. */
+.org-badge-link {
   display: flex;
 }
 
-.affiliate-badge {
+.org-badge {
   width: 0.9375rem;
   height: 0.9375rem;
   max-width: none;
@@ -846,7 +849,7 @@ iframe.youtube-player {
   height: 0.875rem;
 }
 
-.tweet-quote .affiliate-badge {
+.tweet-quote .org-badge {
   width: 0.8125rem;
   height: 0.8125rem;
 }
@@ -1038,6 +1041,11 @@ iframe.youtube-player {
 .comment-head .verified-badge {
   width: 0.875rem;
   height: 0.875rem;
+}
+
+.comment-head .org-badge {
+  width: 0.8125rem;
+  height: 0.8125rem;
 }
 
 .comment-handle,

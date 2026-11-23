@@ -43,6 +43,8 @@ const VERIFIED_ICON =
 // The verified checkmark and affiliate badge that follow an author's name, as
 // on x.com; the same markup as renderBadges in lib/watch.js. Also used by
 // script.js. A quote is a link itself, so its affiliate badge links nowhere.
+// The class names leave out "affiliate", since ad blockers hide .affiliate-link
+// everywhere.
 function renderBadges(author, { link = true } = {}) {
   const badges = document.createElement('span');
   badges.className = 'author-badges';
@@ -53,13 +55,13 @@ function renderBadges(author, { link = true } = {}) {
   const { affiliate } = author;
   if (affiliate) {
     const img = document.createElement('img');
-    img.className = 'affiliate-badge';
+    img.className = 'org-badge';
     img.src = commentsMediaUrl(affiliate.badge);
     img.alt = affiliate.name;
     img.title = affiliate.name;
     if (link && affiliate.url) {
       const a = document.createElement('a');
-      a.className = 'affiliate-link';
+      a.className = 'org-badge-link';
       a.href = affiliate.url;
       a.target = '_blank';
       a.rel = 'noopener';
