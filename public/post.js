@@ -29,7 +29,8 @@
   }
 
   // twimg.com is blocked as a third-party tracker by Firefox strict mode and
-  // many content blockers, so Twitter media loads through phib's /media proxy.
+  // many content blockers, and Instagram's media servers refuse to show their
+  // files on other sites, so their media loads through phib's /media proxy.
   function mediaUrl(value) {
     return `/media?url=${encodeURIComponent(value)}`;
   }
@@ -38,10 +39,14 @@
     return typeof value === 'string' && /^https:\/\/(?:[\w-]+\.)*twimg\.com\//i.test(value);
   }
 
-  // Twitter's pictures load through the proxy, others (like YouTube
-  // thumbnails) directly.
+  function isInstagramCdn(value) {
+    return typeof value === 'string' && /^https:\/\/(?:[\w-]+\.)*(?:cdninstagram\.com|fbcdn\.net)\//i.test(value);
+  }
+
+  // Twitter's and Instagram's pictures load through the proxy, others (like
+  // YouTube thumbnails) directly.
   function imageUrl(value) {
-    return isTwimg(value) ? mediaUrl(value) : value;
+    return isTwimg(value) || isInstagramCdn(value) ? mediaUrl(value) : value;
   }
 
   // Made once: a page of replies formats hundreds of counts.
@@ -786,6 +791,8 @@
     mediaUrl,
     imageUrl,
     formatCount,
+    formatDate,
+    ratio,
     postId,
     pickedMedia,
     thumbnail,

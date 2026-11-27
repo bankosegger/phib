@@ -1369,6 +1369,158 @@ iframe.youtube-player {
   padding: 6px;
 }
 
+/* Instagram --------------------------------------------------------------- */
+
+/* A lone Instagram photo fits its frame the way a video does. */
+.ig-media > .tweet-photo {
+  position: relative;
+  display: block;
+  height: 100%;
+  width: auto;
+  max-width: 100%;
+  aspect-ratio: var(--ratio, 1);
+  object-fit: contain;
+}
+
+/* Several photos and videos sit side by side in a strip that scrolls one at a
+ * time, as on instagram.com. Every slide is as tall as the first one at full
+ * width (--ratio on the carousel), and the others fit inside. */
+.ig-carousel {
+  position: relative;
+  margin-top: 0.75rem;
+}
+
+.ig-track {
+  display: flex;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  border-radius: 10px;
+  box-shadow: 0 0 0 1px var(--phib-box-line);
+  background: #000;
+}
+
+.ig-track::-webkit-scrollbar {
+  display: none;
+}
+
+.ig-track > .tweet-media {
+  flex: 0 0 100%;
+  margin: 0;
+  border-radius: 0;
+  box-shadow: none;
+  scroll-snap-align: center;
+  scroll-snap-stop: always;
+}
+
+.ig-track .tweet-video,
+.ig-track .tweet-photo {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  aspect-ratio: auto;
+  object-fit: contain;
+}
+
+/* The arrows either side, hidden at the ends, and the slide counter. */
+.ig-nav {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 50%;
+  background: #ffffffd9;
+  box-shadow: 0 1px 4px #00000066;
+  color: #111;
+  transform: translateY(-50%);
+}
+
+.ig-nav[data-step='-1'] {
+  left: 10px;
+}
+
+.ig-nav[data-step='1'] {
+  right: 10px;
+}
+
+.ig-nav:hover {
+  background: #fff;
+  color: #000;
+}
+
+.ig-nav:active {
+  transform: translateY(-50%) scale(0.92);
+}
+
+.ig-nav:disabled {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ig-counter {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 2;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: #000000b3;
+  color: #fff;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1.6;
+  pointer-events: none;
+}
+
+/* The download button in each photo's and video's top right corner. While a
+ * file downloads, the button fills up with its progress. */
+.media-download {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #000000b3;
+  color: #fff;
+  transition: background 0.16s ease;
+}
+
+.media-download:hover {
+  background: #000000e6;
+  color: #fff;
+  text-decoration: none;
+}
+
+.media-download[aria-busy='true'] {
+  background: conic-gradient(#ffffff66 calc(var(--progress, 0) * 1turn), #000000b3 0);
+  cursor: progress;
+}
+
+.media-download[data-failed] {
+  background: #e5484dcc;
+}
+
+.ig-nav svg,
+.media-download svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.25;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 /* Possibly sensitive media stays blurred until Show is clicked. */
 .sensitive {
   position: relative;
@@ -2191,5 +2343,12 @@ a.post-card:hover {
 
   .tweet-media-backdrop {
     filter: blur(12px) brightness(0.5);
+  }
+}
+
+/* Touch screens swipe through carousels instead of using the arrows. */
+@media (hover: none) {
+  .ig-nav {
+    display: none;
   }
 }

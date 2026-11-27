@@ -17,7 +17,15 @@ const {
   TWEET_VERSION,
 } = require('./lib/twitter');
 const { parseVideo, resolveVideo, YouTubeError, VIDEO_ID } = require('./lib/youtube');
-const { renderWatchPage, renderYouTubePage, renderErrorPage } = require('./lib/watch');
+const {
+  parseInstagram,
+  resolveInstagram,
+  isInstagramCdn,
+  isStale,
+  InstagramError,
+  BROWSER_UA,
+} = require('./lib/instagram');
+const { renderWatchPage, renderYouTubePage, renderInstagramPage, renderErrorPage } = require('./lib/watch');
 
 const PORT = process.env.PORT || 3000;
 // Vercel caps function responses at 4.5 MB, so video is served in ranges up to this size.
@@ -76,8 +84,8 @@ function parseRecord(record) {
 // Saves a link under a new random code and returns the code. Six characters
 // leave room for 68 billion codes, so a clash is rare and a few tries are
 // plenty; null means they all clashed.
-async function saveLink({ target, tweet, youtube }) {
-  const record = { target, createdAt: new Date().toISOString(), tweet, youtube };
+async function saveLink({ target, tweet, youtube, instagram }) {
+  const record = { target, createdAt: new Date().toISOString(), tweet, youtube, instagram };
   for (let attempt = 0; attempt < 5; attempt++) {
     const code = nanoid(6);
     if ((await redis.set(`url:${code}`, record, { nx: true })) === 'OK') {
@@ -88,7 +96,7 @@ async function saveLink({ target, tweet, youtube }) {
 }
 
 app.post('/api/shorten', async (req, res) => {
-  const { url: source, twitterVideo, youtubeVideo } = req.body || {};
+  const { url: source, twitterVideo, youtubeVideo, instagramPost } = req.body || {};
 
   if (typeof source !== 'string' || source.length > MAX_URL_LENGTH || !isValidUrl(source)) {
     return res.status(400).json({ error: 'Please provide a valid http/https URL.' });
@@ -98,30 +106,35 @@ app.post('/api/shorten', async (req, res) => {
     return res.status(400).json({ error: 'That URL is already a short link from this site.' });
   }
 
-  // Twitter/X posts and YouTube videos shown in phib are looked up first.
+  // Twitter/X posts, YouTube videos and Instagram posts shown in phib are
+  // looked up first.
   const status = twitterVideo === true ? parseStatus(source) : null;
   const video = youtubeVideo === true ? parseVideo(source) : null;
+  const post = instagramPost === true ? parseInstagram(source) : null;
   let url = source;
   let tweet;
   let youtube;
+  let instagram;
   try {
     if (status) {
       ({ url, tweet } = await resolveTweet(status));
     } else if (video) {
       ({ url, youtube } = await resolveVideo(video));
+    } else if (post) {
+      ({ url, instagram } = await resolveInstagram(post));
     }
   } catch (err) {
-    if (err instanceof TwitterError || err instanceof YouTubeError) {
+    if (err instanceof TwitterError || err instanceof YouTubeError || err instanceof InstagramError) {
       return res.status(400).json({ error: err.message });
     }
     console.error(err);
     return res.status(502).json({
-      error: `Could not look up that ${status ? 'post' : 'video'} right now. Please try again in a moment.`,
+      error: `Could not look up that ${video ? 'video' : 'post'} right now. Please try again in a moment.`,
     });
   }
 
   try {
-    const code = await saveLink({ target: url, tweet, youtube });
+    const code = await saveLink({ target: url, tweet, youtube, instagram });
     if (!code) {
       return res.status(500).json({ error: 'Could not generate a unique code, please try again.' });
     }
@@ -132,6 +145,7 @@ app.post('/api/shorten', async (req, res) => {
       source,
       tweet,
       youtube,
+      instagram,
     });
   } catch (err) {
     console.error(err);
@@ -206,8 +220,13 @@ app.get('/api', (req, res) => {
       {
         method: 'POST',
         path: '/api/shorten',
-        body: { url: 'https://example.com', twitterVideo: 'optional boolean', youtubeVideo: 'optional boolean' },
-        description: 'Shortens a URL. With twitterVideo: true, Twitter/X post links open the post in phib, pointing to its video when it has one. With youtubeVideo: true, YouTube video links open the video in phib.',
+        body: {
+          url: 'https://example.com',
+          twitterVideo: 'optional boolean',
+          youtubeVideo: 'optional boolean',
+          instagramPost: 'optional boolean',
+        },
+        description: 'Shortens a URL. With twitterVideo: true, Twitter/X post links open the post in phib, pointing to its video when it has one. With youtubeVideo: true, YouTube video links open the video in phib. With instagramPost: true, Instagram post and reel links open the post in phib, with its photos and videos to play and download.',
       },
       {
         method: 'GET',
@@ -264,7 +283,7 @@ app.get('/api/admin/links', requireAdmin, async (req, res) => {
         if (!record) {
           return;
         }
-        const { target, createdAt, tweet, youtube } = parseRecord(record);
+        const { target, createdAt, tweet, youtube, instagram } = parseRecord(record);
         links.push({
           code,
           shortUrl: `https://${SHORT_DOMAIN}/${code}`,
@@ -273,6 +292,7 @@ app.get('/api/admin/links', requireAdmin, async (req, res) => {
           clicks: Number(values[j * 2 + 1]) || 0,
           tweet: tweet ? { url: tweet.url, handle: tweet.author.handle, text: tweet.text } : null,
           youtube: youtube ? { url: youtube.url, channel: youtube.author.name, title: youtube.title } : null,
+          instagram: instagram ? { url: instagram.url, handle: instagram.author.handle, text: instagram.text } : null,
         });
       });
     }
@@ -301,9 +321,19 @@ app.all('/api/*', (req, res) => {
   res.status(404).json({ error: 'Unknown API endpoint. See /api for the list.' });
 });
 
-// Fetches a Twitter media file, following redirects only while they stay on
-// twimg.com, so the proxy can't be pointed anywhere else.
-async function fetchTwimg(url, headers, signal) {
+// Whether /media loads an address: files on Twitter's (twimg.com) and
+// Instagram's (cdninstagram.com, fbcdn.net) media servers, and nothing else.
+function isProxiedMedia(value) {
+  try {
+    return typeof value === 'string' && (isTwimg(value) || isInstagramCdn(value));
+  } catch {
+    return false;
+  }
+}
+
+// Fetches a media file, following redirects only while they stay on those
+// media servers, so the proxy can't be pointed anywhere else.
+async function fetchMedia(url, headers, signal) {
   let current = url;
   for (let hops = 0; hops <= 3; hops++) {
     const res = await fetch(current, { headers, signal, redirect: 'manual' });
@@ -313,28 +343,26 @@ async function fetchTwimg(url, headers, signal) {
     }
     await res.body?.cancel();
     current = new URL(location, current).toString();
-    if (!isTwimg(current)) {
-      throw new Error(`Twitter media at ${url} redirected off twimg.com, to ${current}.`);
+    if (!isProxiedMedia(current)) {
+      throw new Error(`Media at ${url} redirected off Twitter's and Instagram's media servers, to ${current}.`);
     }
   }
-  throw new Error(`Twitter media at ${url} redirected too many times.`);
+  throw new Error(`Media at ${url} redirected too many times.`);
 }
 
-// Twitter's pictures and videos, which load through phib because content
-// blockers block twimg.com (see mediaUrl in public/post.js). Only images and
-// videos are passed on, so nothing else (an HTML error page, a script) is ever
-// served from phib's own address.
+// Twitter's and Instagram's pictures and videos, which load through phib
+// because content blockers block twimg.com and Instagram's servers refuse to
+// show their files on other sites (see mediaUrl in public/post.js). Only
+// images and videos are passed on, so nothing else (an HTML error page, a
+// script) is ever served from phib's own address.
 app.get('/media', async (req, res) => {
   const { url } = req.query;
-  let valid = false;
-  try {
-    valid = typeof url === 'string' && isTwimg(url);
-  } catch {}
-  if (!valid) {
-    return res.status(400).json({ error: 'Only Twitter media can be loaded.' });
+  if (!isProxiedMedia(url)) {
+    return res.status(400).json({ error: 'Only Twitter and Instagram media can be loaded.' });
   }
 
-  const headers = {};
+  // Instagram's servers are asked the way a browser would, as cobalt does.
+  const headers = isInstagramCdn(url) ? { 'User-Agent': BROWSER_UA } : {};
   const range = /^bytes=(\d+)-(\d*)$/.exec(req.get('Range') || '');
   if (range) {
     const start = Number(range[1]);
@@ -343,13 +371,13 @@ app.get('/media', async (req, res) => {
     headers.Range = `bytes=${start}-${end}`;
   }
 
-  // Gives up if Twitter hasn't started answering after 10 seconds; the
-  // download itself may take as long as the reader's connection needs.
+  // Gives up if the media server hasn't started answering after 10 seconds;
+  // the download itself may take as long as the reader's connection needs.
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 10000);
   let upstream;
   try {
-    upstream = await fetchTwimg(url, headers, controller.signal);
+    upstream = await fetchMedia(url, headers, controller.signal);
   } catch (err) {
     console.error(err);
     return res.status(502).set('Cache-Control', 'no-store').end();
@@ -358,7 +386,7 @@ app.get('/media', async (req, res) => {
   }
 
   // Failures aren't cached: Vercel's CDN would otherwise keep serving a
-  // passing hiccup of Twitter's for a whole day.
+  // passing hiccup of Twitter's or Instagram's for a whole day.
   const type = upstream.headers.get('content-type') || '';
   if (!upstream.ok || !/^(?:image|video)\//i.test(type)) {
     await upstream.body?.cancel().catch(() => {});
@@ -381,8 +409,8 @@ app.get('/media', async (req, res) => {
     return res.end();
   }
   try {
-    // Stops the download from Twitter when the reader goes away, as videos do
-    // whenever they seek.
+    // Stops the download from the media server when the reader goes away, as
+    // videos do whenever they seek.
     await pipeline(Readable.fromWeb(upstream.body), res);
   } catch (err) {
     if (err.code !== 'ERR_STREAM_PREMATURE_CLOSE') {
@@ -439,6 +467,30 @@ app.get(/^\/(watch|shorts\/[\w-]{11})\/?$/, (req, res, next) => {
   sendYouTube(res, next, `https://www.youtube.com${req.originalUrl}`);
 });
 
+// Proxy mode for Instagram: swapping instagram.com for the short domain
+// (pb3p.uk/p/..., pb3p.uk/reel/..., pb3p.uk/share/...) shows the post in phib.
+// Posts that don't exist fall through to the 404 page.
+app.get(
+  /^\/(?:(?:[\w.]{1,30}\/)?(?:p|reels?|tv)\/[\w-]{1,64}|share\/(?:(?:p|reels?)\/)?[\w-]{1,64})\/?$/,
+  async (req, res, next) => {
+    const post = parseInstagram(`https://www.instagram.com${req.path}`);
+    if (!post) {
+      return next();
+    }
+    try {
+      const { instagram } = await resolveInstagram(post);
+      res.set('Cache-Control', 'public, max-age=300');
+      res.send(renderInstagramPage({ instagram }));
+    } catch (err) {
+      if (err instanceof InstagramError) {
+        return next();
+      }
+      console.error(err);
+      res.status(502).send(renderErrorPage({ status: 502, message: 'Could not load this post from Instagram right now. Please try again in a moment.' }));
+    }
+  }
+);
+
 // Links saved before the current version of the tweet details (TWEET_VERSION)
 // are looked up again the first time they open, so they show everything newer
 // links do: badges, link previews, every photo and video, and so on. The fresh
@@ -460,6 +512,26 @@ async function refreshTweet(code, record) {
     await redis.set(`url:${code}`, record, { xx: true });
   } catch (err) {
     if (!(err instanceof TwitterError)) {
+      console.error(err);
+    }
+  }
+}
+
+// Instagram's media addresses stop working after a few days, so a saved post
+// is looked up again when they're about to, or when it was saved before the
+// current version of the post details (see isStale in lib/instagram.js). As
+// with tweets, the fresh details are saved back; if Instagram doesn't answer,
+// the post shows as saved and is tried again on the next open.
+async function refreshInstagram(code, record) {
+  try {
+    const { instagram } = await resolveInstagram(
+      { shortcode: record.instagram.shortcode },
+      { signal: AbortSignal.timeout(5000) }
+    );
+    record.instagram = instagram;
+    await redis.set(`url:${code}`, record, { xx: true });
+  } catch (err) {
+    if (!(err instanceof InstagramError)) {
       console.error(err);
     }
   }
@@ -496,6 +568,12 @@ app.get('/:code', async (req, res, next) => {
     }
     if (youtube) {
       return res.send(renderYouTubePage({ youtube }));
+    }
+    if (data.instagram) {
+      if (isStale(data.instagram)) {
+        await refreshInstagram(code, data);
+      }
+      return res.send(renderInstagramPage({ instagram: data.instagram }));
     }
     // Hosts like video.twimg.com reject requests whose Referer is another site.
     res.set('Referrer-Policy', 'no-referrer');

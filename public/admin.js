@@ -59,6 +59,9 @@ function describeTarget(link) {
   if (link.youtube) {
     return `${link.youtube.channel}: ${link.youtube.title}`;
   }
+  if (link.instagram) {
+    return link.instagram.text ? `@${link.instagram.handle}: ${link.instagram.text}` : `@${link.instagram.handle}`;
+  }
   return link.target.replace(/^https?:\/\/(www\.)?/, '');
 }
 
@@ -99,7 +102,8 @@ function render() {
     const targetCell = document.createElement('td');
     targetCell.className = 'admin-target';
     const target = document.createElement('a');
-    target.href = link.tweet ? link.tweet.url : link.youtube ? link.youtube.url : link.target;
+    const shown = link.tweet || link.youtube || link.instagram;
+    target.href = shown ? shown.url : link.target;
     target.target = '_blank';
     target.rel = 'noopener';
     target.textContent = describeTarget(link);

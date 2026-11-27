@@ -39,6 +39,10 @@ require.cache[redisPath] = redisModule;
 
 const app = require('../server');
 
+// Even if the .env that server.js loads has a session cookie, the tests run
+// without one.
+delete process.env.INSTAGRAM_COOKIE;
+
 // Requests to the test server go through; everything else goes to upstream,
 // which each test sets.
 let base;
@@ -190,4 +194,129 @@ test('the media proxy follows redirects only within twimg.com', async () => {
   upstream = () => new Response(null, { status: 302, headers: { location: 'https://evil.example/page.html' } });
   res = await fetch(mediaUrl('https://pbs.twimg.com/media/redirect.jpg'));
   assert.equal(res.status, 502);
+});
+
+// Instagram ---------------------------------------------------------------------
+
+function json(body, status = 200) {
+  return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
+}
+
+// An Instagram media address, signed to expire in three days.
+const igExpires = Math.floor(Date.now() / 1000) + 3 * 86400;
+function igMedia(name) {
+  return `https://scontent-vie1-1.cdninstagram.com/v/t51.2885-15/${name}?_nc_ht=scontent-vie1-1.cdninstagram.com&oh=00_AbC&oe=${igExpires.toString(16)}`;
+}
+
+// A reel as Instagram's mobile API sends it.
+function igReel(shortcode) {
+  return {
+    code: shortcode,
+    media_type: 2,
+    product_type: 'clips',
+    taken_at: 1764000000,
+    user: { username: 'someone', full_name: 'Some One', profile_pic_url: igMedia('avatar.jpg') },
+    caption: { text: 'A <reel>' },
+    image_versions2: { candidates: [{ width: 1080, height: 1920, url: igMedia('cover.jpg') }] },
+    video_versions: [{ width: 1080, height: 1920, url: igMedia('reel.mp4') }],
+    like_count: 5,
+    comment_count: 1,
+    play_count: 100,
+  };
+}
+
+// Instagram with the given posts, by shortcode: its mobile API knows them, and
+// its GraphQL API says any other post doesn't exist.
+function instagramWith(posts) {
+  const codes = Object.keys(posts);
+  return (url) => {
+    if (url.startsWith('https://i.instagram.com/api/v1/oembed/')) {
+      const index = codes.indexOf(new URL(url).searchParams.get('url').split('/')[4]);
+      return index >= 0 ? json({ media_id: `${index + 1}_7` }) : json({ message: 'No media match' }, 404);
+    }
+    const info = url.match(/\/api\/v1\/media\/(\d+)_7\/info\/$/);
+    if (info) {
+      return json({ items: [posts[codes[info[1] - 1]]] });
+    }
+    if (url === 'https://www.instagram.com/graphql/query') {
+      return json({ data: { xdt_shortcode_media: null }, status: 'ok' });
+    }
+    return new Response('<html></html>', { status: 200, headers: { 'content-type': 'text/html' } });
+  };
+}
+
+test('opens Instagram posts in phib, and looks them up again before their media expire', async () => {
+  upstream = instagramWith({ C9reelCODE1: igReel('C9reelCODE1') });
+  const res = await shorten({ url: 'https://www.instagram.com/reel/C9reelCODE1/?igsh=abc', instagramPost: true });
+  assert.equal(res.status, 200);
+  const { code, target, instagram } = await res.json();
+  assert.equal(target, 'https://www.instagram.com/reel/C9reelCODE1/');
+  assert.equal(instagram.author.handle, 'someone');
+  assert.equal(instagram.media[0].url, igMedia('reel.mp4'));
+
+  // While the media addresses work, opening the link is a plain read.
+  let asked = 0;
+  upstream = (url) => {
+    asked += 1;
+    return instagramWith({ C9reelCODE1: igReel('C9reelCODE1') })(url);
+  };
+  let page = await fetch(`${base}/${code}`);
+  assert.equal(page.status, 200);
+  let html = await page.text();
+  assert.equal(asked, 0);
+  assert.match(html, /<video class="tweet-video" src="\/media\?url=https%3A%2F%2Fscontent-vie1-1\.cdninstagram\.com/);
+  assert.match(html, /A &lt;reel&gt;/);
+  assert.match(html, /<meta property="og:video" content="https:\/\/scontent-vie1-1\.cdninstagram\.com\//);
+  assert.match(html, /download="instagram_C9reelCODE1\.mp4"/);
+  assert.match(html, /<script src="\/instagram\.js"><\/script>/);
+
+  // Once they're about to expire, the post is looked up again and saved back.
+  const record = store.get(`url:${code}`);
+  record.instagram.expires = new Date(Date.now() + 60 * 1000).toISOString();
+  record.instagram.media[0].url = 'https://scontent-vie1-1.cdninstagram.com/v/old.mp4';
+  store.set(`url:${code}`, record);
+  page = await fetch(`${base}/${code}`);
+  html = await page.text();
+  assert.ok(asked > 0);
+  assert.doesNotMatch(html, /old\.mp4/);
+  const saved = store.get(`url:${code}`).instagram;
+  assert.equal(saved.media[0].url, igMedia('reel.mp4'));
+  assert.ok(Date.parse(saved.expires) > Date.now() + 24 * 60 * 60 * 1000);
+});
+
+test('proxy mode shows Instagram posts, and says when they are missing or Instagram is failing', async () => {
+  upstream = instagramWith({ C9reelCODE1: igReel('C9reelCODE1') });
+  let res = await fetch(`${base}/someone/reel/C9reelCODE1/`);
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get('cache-control'), 'public, max-age=300');
+  assert.match(await res.text(), /View on Instagram/);
+
+  res = await fetch(`${base}/p/C8missing00`);
+  assert.equal(res.status, 404);
+
+  upstream = () => new Response('Please wait a few minutes before you try again.', { status: 429 });
+  res = await fetch(`${base}/p/C9reelCODE1`);
+  assert.equal(res.status, 502);
+  assert.match(await res.text(), /Could not load this post from Instagram right now/);
+});
+
+test('the media proxy loads Instagram media too, asking the way a browser does', async () => {
+  let asked;
+  upstream = (url, init) => {
+    asked = init.headers;
+    return new Response('fake mp4', {
+      status: 206,
+      headers: { 'content-type': 'video/mp4', 'content-range': 'bytes 0-7/8' },
+    });
+  };
+  let res = await fetch(mediaUrl('https://instagram.fvie1-1.fna.fbcdn.net/v/clip.mp4?oe=1&oh=2'), {
+    headers: { Range: 'bytes=0-' },
+  });
+  assert.equal(res.status, 206);
+  assert.equal(await res.text(), 'fake mp4');
+  assert.match(asked['User-Agent'], /Chrome\//);
+  assert.equal(asked.Range, `bytes=0-${4 * 1024 * 1024 - 1}`);
+
+  res = await fetch(mediaUrl('https://fbcdn.net.evil.example/clip.mp4'));
+  assert.equal(res.status, 400);
 });

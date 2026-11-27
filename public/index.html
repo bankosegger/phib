@@ -35,7 +35,7 @@
         <input type="url" id="url-input" placeholder="https://example.com" aria-label="Long URL" required />
         <button type="submit">Shorten</button>
       </div>
-      <!-- Shown when the pasted link is a Twitter/X post or YouTube video -->
+      <!-- Shown when the pasted link is a Twitter/X post, YouTube video or Instagram post -->
       <div id="choice" class="choice" hidden>
         <span id="choice-label" class="choice-label"></span>
         <button type="button" id="choice-short" class="choice-btn">Short link</button>
@@ -66,6 +66,11 @@
       <article id="tweet-post" class="tweet"></article>
 
       <section id="comments" class="comments" hidden></section>
+    </div>
+
+    <div id="instagram-layout" class="tweet-layout" hidden>
+      <!-- Filled by public/instagram.js, as lib/watch.js fills the page a short link opens -->
+      <article id="instagram-post" class="tweet"></article>
     </div>
 
     <div id="youtube-layout" class="tweet-layout" hidden>
@@ -105,6 +110,7 @@
   <a class="support" href="https://ko-fi.com/bankosegger/goal?g=0" target="_blank" rel="noopener">support phib</a>
 
   <script src="post.js"></script>
+  <script src="instagram.js"></script>
   <script src="comments.js"></script>
   <script src="script.js"></script>
   <script src="https://bankosegger.me/banko-tag.js" defer></script>

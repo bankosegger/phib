@@ -14,6 +14,8 @@ const tweetLayoutEl = document.getElementById('tweet-layout');
 const tweetPostEl = document.getElementById('tweet-post');
 const commentsEl = document.getElementById('comments');
 const youtubeLayoutEl = document.getElementById('youtube-layout');
+const instagramLayoutEl = document.getElementById('instagram-layout');
+const instagramPostEl = document.getElementById('instagram-post');
 const choiceEl = document.getElementById('choice');
 const choiceLabelEl = document.getElementById('choice-label');
 const choiceShortBtn = document.getElementById('choice-short');
@@ -89,10 +91,23 @@ showQuote();
 
 const TWITTER_HOSTS = ['twitter.com', 'x.com', 'mobile.twitter.com', 'mobile.x.com'];
 const YOUTUBE_HOSTS = ['youtube.com', 'm.youtube.com', 'music.youtube.com', 'youtube-nocookie.com'];
+const INSTAGRAM_HOSTS = ['instagram.com', 'instagr.am', 'ddinstagram.com', 'd.ddinstagram.com', 'g.ddinstagram.com'];
 const VIDEO_ID = /^[\w-]{11}$/;
 
-// Whether a link is a Twitter/X post or a YouTube video, mirroring parseStatus
-// in lib/twitter.js and parseVideo in lib/youtube.js.
+// Whether an Instagram link is a post, a reel or a share link to one, as
+// parseInstagram in lib/instagram.js reads them.
+function isInstagramPost(url) {
+  const path = url.pathname;
+  if (/^\/share\/(?:(?:p|reels?)\/)?[\w-]{1,64}\/?$/.test(path)) {
+    return true;
+  }
+  const match = path.match(/^\/(?:[\w.]{1,30}\/)?(?:p|reels?|tv)\/([\w-]{1,64})(?:\/|$)/);
+  return Boolean(match) && match[1] !== 'audio';
+}
+
+// Whether a link is a Twitter/X post, a YouTube video or an Instagram post,
+// mirroring parseStatus in lib/twitter.js, parseVideo in lib/youtube.js and
+// parseInstagram in lib/instagram.js.
 function detectKind(value) {
   let url;
   try {
@@ -103,6 +118,9 @@ function detectKind(value) {
   const host = url.hostname.toLowerCase().replace(/^www\./, '');
   if (TWITTER_HOSTS.includes(host) && /\/status\/\d+/.test(url.pathname)) {
     return 'twitter';
+  }
+  if (INSTAGRAM_HOSTS.includes(host)) {
+    return isInstagramPost(url) ? 'instagram' : null;
   }
   let id;
   if (host === 'youtu.be') {
@@ -117,6 +135,7 @@ function detectKind(value) {
 const CHOICES = {
   twitter: { label: 'This is a Twitter/X post.', view: 'Post view' },
   youtube: { label: 'This is a YouTube video.', view: 'YouTube view' },
+  instagram: { label: 'This is an Instagram post.', view: 'Instagram view' },
 };
 
 // The kind of link the choice is currently asked for, or null.
@@ -158,14 +177,18 @@ const LINK_ICON =
   '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />' +
   '<path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>';
 
-// What a history entry points to: the tweet for Twitter/X posts, the video for
-// YouTube links, otherwise the target address without its protocol.
+// What a history entry points to: the post for Twitter/X and Instagram posts,
+// the video for YouTube links, otherwise the target address without its
+// protocol.
 function describeTarget(item) {
   if (item.tweet) {
     return `@${item.tweet.handle}: ${item.tweet.text}`;
   }
   if (item.youtube) {
     return `${item.youtube.channel}: ${item.youtube.title}`;
+  }
+  if (item.instagram) {
+    return item.instagram.text ? `@${item.instagram.handle}: ${item.instagram.text}` : `@${item.instagram.handle}`;
   }
   return (item.source || item.target).replace(/^https?:\/\/(www\.)?/, '');
 }
@@ -185,12 +208,14 @@ function renderHistory() {
 
     const thumb = document.createElement('div');
     thumb.className = 'history-thumb';
-    const thumbnail = item.tweet ? item.tweet.thumbnail && PhibPost.imageUrl(item.tweet.thumbnail) : item.youtube?.thumbnail;
+    const post = item.tweet || item.instagram;
+    const thumbnail = post ? post.thumbnail && PhibPost.imageUrl(post.thumbnail) : item.youtube?.thumbnail;
     if (thumbnail) {
       const img = document.createElement('img');
       img.src = thumbnail;
       img.alt = '';
-      // Thumbnails disappear when a tweet is deleted.
+      // Thumbnails disappear when a post is deleted, and Instagram's after a
+      // few days.
       img.onerror = () => {
         thumb.innerHTML = LINK_ICON;
       };
@@ -221,14 +246,26 @@ function renderHistory() {
   }
 }
 
-// Stops the post's videos downloading before they go, then empties the post.
-function clearPost() {
-  for (const videoEl of tweetPostEl.querySelectorAll('video')) {
+// Stops a post's videos downloading before they go, then empties the post.
+function clearPost(postEl = tweetPostEl) {
+  for (const videoEl of postEl.querySelectorAll('video')) {
     videoEl.pause();
     videoEl.removeAttribute('src');
     videoEl.load();
   }
-  tweetPostEl.innerHTML = '';
+  postEl.innerHTML = '';
+}
+
+// The Instagram post as public/instagram.js renders it, the same as on the
+// page the short link opens.
+function renderInstagram(instagram) {
+  clearPost(instagramPostEl);
+  instagramLayoutEl.hidden = !instagram;
+  if (instagram) {
+    instagramPostEl.innerHTML = PhibInstagram.renderPost(instagram);
+    // After it's shown, since Show more measures the caption.
+    PhibPost.enhance(instagramPostEl);
+  }
 }
 
 function renderYouTube(youtube) {
@@ -287,6 +324,7 @@ function showError(message) {
   resultEl.hidden = true;
   hideTweet();
   renderYouTube(null);
+  renderInstagram(null);
 }
 
 function showResult(data) {
@@ -296,6 +334,7 @@ function showResult(data) {
   resultEl.hidden = false;
   renderTweet(data.tweet, data.target);
   renderYouTube(data.youtube);
+  renderInstagram(data.instagram);
 
   const items = loadHistory();
   items.unshift({
@@ -313,6 +352,11 @@ function showResult(data) {
       channel: data.youtube.author.name,
       title: data.youtube.title,
       thumbnail: data.youtube.thumbnail,
+    },
+    instagram: data.instagram && {
+      handle: data.instagram.author.handle,
+      text: data.instagram.text.slice(0, 140),
+      thumbnail: PhibInstagram.thumbnail(data.instagram),
     },
   });
   saveHistory(items);
@@ -332,7 +376,8 @@ function setBusy(value) {
   submitBtn.textContent = value ? 'Shortening…' : 'Shorten';
 }
 
-// view picks the Twitter/X post or YouTube view over a plain short link.
+// view picks the Twitter/X post, YouTube or Instagram view over a plain short
+// link.
 async function shorten(view) {
   if (busy) {
     return;
@@ -354,6 +399,7 @@ async function shorten(view) {
         url,
         twitterVideo: view && kind === 'twitter',
         youtubeVideo: view && kind === 'youtube',
+        instagramPost: view && kind === 'instagram',
       }),
     });
     // Vercel answers timeouts with a page rather than JSON.
