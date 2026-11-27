@@ -332,6 +332,9 @@ function showResult(data) {
   shortLinkEl.href = data.shortUrl;
   shortLinkEl.textContent = data.shortUrl;
   resultEl.hidden = false;
+  // The short link goes in the address bar too, so it can be copied from there.
+  // Only the path changes, since the page may not be on the short domain.
+  history.replaceState(null, '', `/${data.code}`);
   renderTweet(data.tweet, data.target);
   renderYouTube(data.youtube);
   renderInstagram(data.instagram);
@@ -470,6 +473,7 @@ renderHistory();
 // shortened right away.
 const prefilled = new URLSearchParams(location.search).get('url');
 if (prefilled) {
+  // Until the short link is ready, which then takes its place.
   history.replaceState(null, '', '/');
   urlInput.value = prefilled;
   form.requestSubmit();
