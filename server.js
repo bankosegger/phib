@@ -81,14 +81,44 @@ function parseRecord(record) {
   return typeof record === 'string' ? JSON.parse(record) : record;
 }
 
+const LINK_COUNT_KEY = 'stats:links';
+
+// How many links have been made. Redis keeps the count as links are saved, and
+// the first time it's needed it starts from the links already there.
+async function linkCount() {
+  const count = await redis.get(LINK_COUNT_KEY);
+  if (count !== null) {
+    return Number(count);
+  }
+  const { length } = await listCodes();
+  if ((await redis.set(LINK_COUNT_KEY, length, { nx: true })) === 'OK') {
+    return length;
+  }
+  // Another request started it meanwhile.
+  return Number(await redis.get(LINK_COUNT_KEY));
+}
+
 // Saves a link under a new random code and returns the code. Six characters
 // leave room for 68 billion codes, so a clash is rare and a few tries are
 // plenty; null means they all clashed.
 async function saveLink({ target, tweet, youtube, instagram }) {
+  // Before the link is saved, so a count this starts doesn't include it twice.
+  // A broken count doesn't stop the link, but isn't bumped either: counting
+  // up from nothing would start it again at 1.
+  const counted = await linkCount().then(
+    () => true,
+    (err) => {
+      console.error(err);
+      return false;
+    }
+  );
   const record = { target, createdAt: new Date().toISOString(), tweet, youtube, instagram };
   for (let attempt = 0; attempt < 5; attempt++) {
     const code = nanoid(6);
     if ((await redis.set(`url:${code}`, record, { nx: true })) === 'OK') {
+      if (counted) {
+        await redis.incr(LINK_COUNT_KEY).catch((err) => console.error(err));
+      }
       return code;
     }
   }
@@ -150,6 +180,15 @@ app.post('/api/shorten', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+});
+
+app.get('/api/stats', async (req, res) => {
+  try {
+    res.json({ links: await linkCount() });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Something went wrong.' });
   }
 });
 
@@ -227,6 +266,11 @@ app.get('/api', (req, res) => {
           instagramPost: 'optional boolean',
         },
         description: 'Shortens a URL. With twitterVideo: true, Twitter/X post links open the post in phib, pointing to its video when it has one. With youtubeVideo: true, YouTube video links open the video in phib. With instagramPost: true, Instagram post and reel links open the post in phib, with its photos and videos to play and download.',
+      },
+      {
+        method: 'GET',
+        path: '/api/stats',
+        description: 'How many links have been shortened.',
       },
       {
         method: 'GET',

@@ -33,6 +33,7 @@ npm test               # runs offline: Redis, FxTwitter, YouTube and Instagram a
   - `stats`: likes, comments and views (accounts can hide likes and views, which are then left out)
   - `media`: every photo and video in order, with its size and alt text, and for videos the thumbnail and duration. These are addresses on Instagram's media servers, which stop working after a few days
   - `expires`: when the first of them does. Short links whose media is about to expire are looked up again when they're opened
+- `GET /api/stats` returns `{ links }`: how many links have been shortened. The count is kept in Redis as links are made; the first time it's needed it starts from the links already saved
 - `GET /api/stats/:code` returns `{ code, target, createdAt, clicks }`
 - `GET /api/replies/:tweetId` returns `{ replies, cursor }`: a page of a post's top replies, each with its text and links, media, link preview, quoted post, counts and the id of the post it answers, plus the cursor to pass as `?cursor=` for the next page (`null` after the last)
 - `GET /api/translate/:tweetId?lang=en` returns `{ translation: { text, links, from, provider } }`: the post's text translated by FxTwitter into the given language

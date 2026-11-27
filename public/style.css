@@ -352,6 +352,14 @@ form {
   margin: 0.875rem 0 0;
 }
 
+/* How many links phib has made, under the field and the short link. */
+.link-count {
+  margin: 0.75rem 0 0;
+  color: var(--phib-muted);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
 .result {
   margin-top: 0.5rem;
   display: flex;

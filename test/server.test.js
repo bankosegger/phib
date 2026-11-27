@@ -29,6 +29,11 @@ const redis = {
   async mget(...keys) {
     return keys.map((key) => (store.has(key) ? structuredClone(store.get(key)) : null));
   },
+  // All matching keys in one go, where Redis pages through them.
+  async scan(cursor, { match }) {
+    const prefix = match.replace(/\*$/, '');
+    return ['0', [...store.keys()].filter((key) => key.startsWith(prefix))];
+  },
 };
 const redisPath = require.resolve('../lib/redis');
 const redisModule = new Module(redisPath);
@@ -98,6 +103,39 @@ test('shortens a link and redirects to it, counting the click', async () => {
   assert.equal(open.headers.get('referrer-policy'), 'no-referrer');
   assert.equal(store.get(`clicks:${code}`), 1);
   assert.equal(open.headers.get('x-powered-by'), null);
+});
+
+function savedLinks() {
+  return [...store.keys()].filter((key) => key.startsWith('url:')).length;
+}
+
+async function fetchLinkCount() {
+  const res = await fetch(`${base}/api/stats`);
+  assert.equal(res.status, 200);
+  return (await res.json()).links;
+}
+
+test('counts the links made, starting from the ones already saved', async () => {
+  await shorten({ url: 'https://example.com/before-counting' });
+  store.delete('stats:links');
+  const saved = savedLinks();
+  assert.ok(saved > 0);
+  assert.equal(await fetchLinkCount(), saved);
+
+  await shorten({ url: 'https://example.com/counted' });
+  await shorten({ url: 'https://example.com/counted-too' });
+  assert.equal(await fetchLinkCount(), saved + 2);
+
+  // Links that aren't made don't count.
+  await shorten({ url: 'ftp://example.com/file' });
+  assert.equal(await fetchLinkCount(), saved + 2);
+});
+
+test('a link that starts the count is counted once', async () => {
+  store.delete('stats:links');
+  const res = await shorten({ url: 'https://example.com/starts-the-count' });
+  assert.equal(res.status, 200);
+  assert.equal(await fetchLinkCount(), savedLinks());
 });
 
 test('refuses what is not a single http(s) address, or already a short link', async () => {

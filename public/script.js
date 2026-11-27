@@ -20,6 +20,7 @@ const choiceEl = document.getElementById('choice');
 const choiceLabelEl = document.getElementById('choice-label');
 const choiceShortBtn = document.getElementById('choice-short');
 const choiceViewBtn = document.getElementById('choice-view');
+const linkCountEl = document.getElementById('link-count');
 
 const HISTORY_KEY = 'phib-history';
 const QUOTE_KEY = 'phib-quote';
@@ -246,6 +247,29 @@ function renderHistory() {
   }
 }
 
+// How many links phib has made, or null when it couldn't be fetched. The line
+// stays hidden then, and until there's a first link.
+let linkCount = null;
+
+function renderLinkCount() {
+  linkCountEl.hidden = !linkCount;
+  if (linkCount) {
+    const people = linkCount === 1 ? 'person' : 'people';
+    linkCountEl.textContent = `${linkCount.toLocaleString('en')} ${people} already shared a link`;
+  }
+}
+
+async function loadLinkCount() {
+  try {
+    const res = await fetch('/api/stats');
+    const { links } = await res.json();
+    if (res.ok && Number.isInteger(links)) {
+      linkCount = links;
+      renderLinkCount();
+    }
+  } catch {}
+}
+
 // Stops a post's videos downloading before they go, then empties the post.
 function clearPost(postEl = tweetPostEl) {
   for (const videoEl of postEl.querySelectorAll('video')) {
@@ -364,6 +388,12 @@ function showResult(data) {
   });
   saveHistory(items);
   renderHistory();
+
+  // This link makes one more.
+  if (linkCount !== null) {
+    linkCount += 1;
+    renderLinkCount();
+  }
 }
 
 // Whether a link is being shortened. Looking up a post takes a moment, and
@@ -468,6 +498,7 @@ historyToggleEl.addEventListener('click', () => {
 });
 
 renderHistory();
+loadLinkCount();
 
 // URL mode: the server sends pb3p.uk/https://... here as /?url=..., which is
 // shortened right away.
