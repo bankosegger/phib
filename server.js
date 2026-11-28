@@ -12,19 +12,12 @@ const {
   resolveTweet,
   fetchReplies,
   translateTweet,
-  TwitterError,
   isTwimg,
   TWEET_VERSION,
 } = require('./lib/twitter');
-const { parseVideo, resolveVideo, YouTubeError, VIDEO_ID } = require('./lib/youtube');
-const {
-  parseInstagram,
-  resolveInstagram,
-  isInstagramCdn,
-  isStale,
-  InstagramError,
-  BROWSER_UA,
-} = require('./lib/instagram');
+const { parseVideo, resolveVideo, VIDEO_ID } = require('./lib/youtube');
+const { parseInstagram, resolveInstagram, isInstagramCdn, isStale, BROWSER_UA } = require('./lib/instagram');
+const { NotFoundError } = require('./lib/util');
 const { renderWatchPage, renderYouTubePage, renderInstagramPage, renderErrorPage } = require('./lib/watch');
 
 const PORT = process.env.PORT || 3000;
@@ -42,6 +35,9 @@ if (!SHORT_DOMAIN) {
   throw new Error('Missing SHORT_DOMAIN environment variable.');
 }
 
+// The short domain counts with or without www., since one redirects to the other.
+const SHORT_HOST = SHORT_DOMAIN.toLowerCase().replace(/^www\./, '');
+
 const app = express();
 app.disable('x-powered-by');
 app.use(express.json());
@@ -56,15 +52,15 @@ function isValidUrl(value) {
   }
 }
 
-// The short domain counts with or without www., since one redirects to the
-// other.
-function bareHost(host) {
-  return host.toLowerCase().replace(/^www\./, '');
+function isOwnDomain(value) {
+  return new URL(value).host.toLowerCase().replace(/^www\./, '') === SHORT_HOST;
 }
 
-function isOwnDomain(value) {
-  return bareHost(new URL(value).host) === bareHost(SHORT_DOMAIN);
-}
+// The short link of a code.
+const shortUrl = (code) => `https://${SHORT_DOMAIN}/${code}`;
+
+// Answers with a JSON error.
+const jsonError = (res, status, error) => res.status(status).json({ error });
 
 // Short codes are nanoid's letters, digits, _ and -. Other paths (robots.txt,
 // apple-touch-icon.png, probes for wp-login.php) can't be short links, so they
@@ -81,6 +77,12 @@ function parseRecord(record) {
   return typeof record === 'string' ? JSON.parse(record) : record;
 }
 
+// Logs an unexpected failure and answers 500, so routes don't repeat it.
+function serverError(res, err) {
+  console.error(err);
+  res.status(500).json({ error: 'Something went wrong. Please try again.' });
+}
+
 const LINK_COUNT_KEY = 'stats:links';
 
 // How many links have been made. Redis keeps the count as links are saved, and
@@ -91,10 +93,8 @@ async function linkCount() {
     return Number(count);
   }
   const { length } = await listCodes();
-  if ((await redis.set(LINK_COUNT_KEY, length, { nx: true })) === 'OK') {
-    return length;
-  }
-  // Another request started it meanwhile.
+  await redis.set(LINK_COUNT_KEY, length, { nx: true });
+  // Another request may have started the count meanwhile.
   return Number(await redis.get(LINK_COUNT_KEY));
 }
 
@@ -125,61 +125,58 @@ async function saveLink({ target, tweet, youtube, instagram }) {
   return null;
 }
 
+// The lookups a shorten request can ask for, by its flag: how to read the
+// pasted link, how to resolve it, and the key the details are stored under.
+const LOOKUPS = [
+  ['twitterVideo', parseStatus, resolveTweet, 'tweet'],
+  ['youtubeVideo', parseVideo, resolveVideo, 'youtube'],
+  ['instagramPost', parseInstagram, resolveInstagram, 'instagram'],
+];
+
 app.post('/api/shorten', async (req, res) => {
-  const { url: source, twitterVideo, youtubeVideo, instagramPost } = req.body || {};
+  const body = req.body || {};
+  const source = body.url;
 
   if (typeof source !== 'string' || source.length > MAX_URL_LENGTH || !isValidUrl(source)) {
-    return res.status(400).json({ error: 'Please provide a valid http/https URL.' });
+    return jsonError(res, 400, 'Please provide a valid http/https URL.');
   }
 
   if (isOwnDomain(source)) {
-    return res.status(400).json({ error: 'That URL is already a short link from this site.' });
+    return jsonError(res, 400, 'That URL is already a short link from this site.');
   }
 
   // Twitter/X posts, YouTube videos and Instagram posts shown in phib are
   // looked up first.
-  const status = twitterVideo === true ? parseStatus(source) : null;
-  const video = youtubeVideo === true ? parseVideo(source) : null;
-  const post = instagramPost === true ? parseInstagram(source) : null;
+  const wanted = LOOKUPS.find(([flag, parse]) => body[flag] === true && parse(source));
   let url = source;
-  let tweet;
-  let youtube;
-  let instagram;
-  try {
-    if (status) {
-      ({ url, tweet } = await resolveTweet(status));
-    } else if (video) {
-      ({ url, youtube } = await resolveVideo(video));
-    } else if (post) {
-      ({ url, instagram } = await resolveInstagram(post));
+  const details = {};
+  if (wanted) {
+    const [, parse, resolve, key] = wanted;
+    try {
+      const result = await resolve(parse(source));
+      url = result.url;
+      details[key] = result[key];
+    } catch (err) {
+      if (err instanceof NotFoundError) {
+        return jsonError(res, 400, err.message);
+      }
+      console.error(err);
+      return jsonError(
+        res,
+        502,
+        `Could not look up that ${key === 'youtube' ? 'video' : 'post'} right now. Please try again in a moment.`
+      );
     }
-  } catch (err) {
-    if (err instanceof TwitterError || err instanceof YouTubeError || err instanceof InstagramError) {
-      return res.status(400).json({ error: err.message });
-    }
-    console.error(err);
-    return res.status(502).json({
-      error: `Could not look up that ${video ? 'video' : 'post'} right now. Please try again in a moment.`,
-    });
   }
 
   try {
-    const code = await saveLink({ target: url, tweet, youtube, instagram });
+    const code = await saveLink({ target: url, ...details });
     if (!code) {
-      return res.status(500).json({ error: 'Could not generate a unique code, please try again.' });
+      return jsonError(res, 500, 'Could not generate a unique code, please try again.');
     }
-    res.json({
-      code,
-      shortUrl: `https://${SHORT_DOMAIN}/${code}`,
-      target: url,
-      source,
-      tweet,
-      youtube,
-      instagram,
-    });
+    res.json({ code, shortUrl: shortUrl(code), target: url, source, ...details });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+    serverError(res, err);
   }
 });
 
@@ -187,67 +184,65 @@ app.get('/api/stats', async (req, res) => {
   try {
     res.json({ links: await linkCount() });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Something went wrong.' });
+    serverError(res, err);
   }
 });
 
 app.get('/api/stats/:code', async (req, res) => {
   const { code } = req.params;
   if (!isCode(code)) {
-    return res.status(404).json({ error: 'Short URL not found.' });
+    return jsonError(res, 404, 'Short URL not found.');
   }
   try {
     const [record, clicks] = await redis.mget(`url:${code}`, `clicks:${code}`);
     if (!record) {
-      return res.status(404).json({ error: 'Short URL not found.' });
+      return jsonError(res, 404, 'Short URL not found.');
     }
     const { target, createdAt } = parseRecord(record);
     res.json({ code, target, createdAt, clicks: Number(clicks) || 0 });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Something went wrong.' });
+    serverError(res, err);
   }
 });
 
 app.get('/api/replies/:id', async (req, res) => {
   if (!isTweetId(req.params.id)) {
-    return res.status(400).json({ error: 'Invalid tweet id.' });
+    return jsonError(res, 400, 'Invalid tweet id.');
   }
   const { cursor } = req.query;
   if (cursor !== undefined && (typeof cursor !== 'string' || !/^[\w+/=-]{1,4096}$/.test(cursor))) {
-    return res.status(400).json({ error: 'Invalid cursor.' });
+    return jsonError(res, 400, 'Invalid cursor.');
   }
   try {
     const page = await fetchReplies(req.params.id, cursor);
     res.set('Cache-Control', 'public, max-age=300');
     res.json(page);
   } catch (err) {
-    if (!(err instanceof TwitterError)) {
+    if (!(err instanceof NotFoundError)) {
       console.error(err);
     }
-    res.status(502).json({ error: 'Could not load replies.' });
+    jsonError(res, 502, 'Could not load replies.');
   }
 });
 
 app.get('/api/translate/:id', async (req, res) => {
   const { lang } = req.query;
   if (!isTweetId(req.params.id)) {
-    return res.status(400).json({ error: 'Invalid tweet id.' });
+    return jsonError(res, 400, 'Invalid tweet id.');
   }
   if (typeof lang !== 'string' || !/^[a-z]{2,3}(-[a-z]{2,4})?$/i.test(lang)) {
-    return res.status(400).json({ error: 'Pass the language to translate into, like lang=en.' });
+    return jsonError(res, 400, 'Pass the language to translate into, like lang=en.');
   }
   try {
     const translation = await translateTweet(req.params.id, lang.toLowerCase());
     res.set('Cache-Control', 'public, max-age=86400');
     res.json({ translation });
   } catch (err) {
-    if (err instanceof TwitterError) {
-      return res.status(404).json({ error: err.message });
+    if (err instanceof NotFoundError) {
+      return jsonError(res, 404, err.message);
     }
     console.error(err);
-    res.status(502).json({ error: 'Could not translate this post.' });
+    jsonError(res, 502, 'Could not translate this post.');
   }
 });
 
@@ -313,38 +308,40 @@ async function listCodes() {
   return codes;
 }
 
+// What the admin list shows of a saved link: the details of its post or video
+// in short, since the stored ones are a few kilobytes each.
+function adminLink(code, record, clicks) {
+  const { target, createdAt, tweet, youtube, instagram } = parseRecord(record);
+  return {
+    code,
+    shortUrl: shortUrl(code),
+    target,
+    createdAt,
+    clicks: Number(clicks) || 0,
+    tweet: tweet ? { url: tweet.url, handle: tweet.author.handle, text: tweet.text } : null,
+    youtube: youtube ? { url: youtube.url, channel: youtube.author.name, title: youtube.title } : null,
+    instagram: instagram ? { url: instagram.url, handle: instagram.author.handle, text: instagram.text } : null,
+  };
+}
+
 app.get('/api/admin/links', requireAdmin, async (req, res) => {
   try {
     const codes = await listCodes();
     const links = [];
-    // Keeps each Upstash request, and its answer, well under the size limit:
-    // tweet links store a few kilobytes of the post each.
+    // Batches keep each Upstash request, and its answer, well under the size limit.
     for (let i = 0; i < codes.length; i += 100) {
       const batch = codes.slice(i, i + 100);
       const values = await redis.mget(...batch.flatMap((code) => [`url:${code}`, `clicks:${code}`]));
       batch.forEach((code, j) => {
-        const record = values[j * 2];
-        if (!record) {
-          return;
+        if (values[j * 2]) {
+          links.push(adminLink(code, values[j * 2], values[j * 2 + 1]));
         }
-        const { target, createdAt, tweet, youtube, instagram } = parseRecord(record);
-        links.push({
-          code,
-          shortUrl: `https://${SHORT_DOMAIN}/${code}`,
-          target,
-          createdAt,
-          clicks: Number(values[j * 2 + 1]) || 0,
-          tweet: tweet ? { url: tweet.url, handle: tweet.author.handle, text: tweet.text } : null,
-          youtube: youtube ? { url: youtube.url, channel: youtube.author.name, title: youtube.title } : null,
-          instagram: instagram ? { url: instagram.url, handle: instagram.author.handle, text: instagram.text } : null,
-        });
       });
     }
     links.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
     res.json({ links });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Something went wrong.' });
+    serverError(res, err);
   }
 });
 
@@ -352,17 +349,16 @@ app.delete('/api/admin/links/:code', requireAdmin, async (req, res) => {
   try {
     const removed = await redis.del(`url:${req.params.code}`, `clicks:${req.params.code}`);
     if (!removed) {
-      return res.status(404).json({ error: 'Short URL not found.' });
+      return jsonError(res, 404, 'Short URL not found.');
     }
     res.status(204).end();
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Something went wrong.' });
+    serverError(res, err);
   }
 });
 
 app.all('/api/*', (req, res) => {
-  res.status(404).json({ error: 'Unknown API endpoint. See /api for the list.' });
+  jsonError(res, 404, 'Unknown API endpoint. See /api for the list.');
 });
 
 // Whether /media loads an address: files on Twitter's (twimg.com) and
@@ -394,6 +390,18 @@ async function fetchMedia(url, headers, signal) {
   throw new Error(`Media at ${url} redirected too many times.`);
 }
 
+// The Range header to ask the media server for, capped so one response stays
+// under Vercel's size limit. Undefined when the request has no Range.
+function mediaRange(header) {
+  const match = /^bytes=(\d+)-(\d*)$/.exec(header || '');
+  if (!match) {
+    return undefined;
+  }
+  const start = Number(match[1]);
+  const end = match[2] ? Math.min(Number(match[2]), start + MEDIA_CHUNK - 1) : start + MEDIA_CHUNK - 1;
+  return `bytes=${start}-${end}`;
+}
+
 // Twitter's and Instagram's pictures and videos, which load through phib
 // because content blockers block twimg.com and Instagram's servers refuse to
 // show their files on other sites (see mediaUrl in public/post.js). Only
@@ -402,17 +410,14 @@ async function fetchMedia(url, headers, signal) {
 app.get('/media', async (req, res) => {
   const { url } = req.query;
   if (!isProxiedMedia(url)) {
-    return res.status(400).json({ error: 'Only Twitter and Instagram media can be loaded.' });
+    return jsonError(res, 400, 'Only Twitter and Instagram media can be loaded.');
   }
 
   // Instagram's servers are asked the way a browser would, as cobalt does.
   const headers = isInstagramCdn(url) ? { 'User-Agent': BROWSER_UA } : {};
-  const range = /^bytes=(\d+)-(\d*)$/.exec(req.get('Range') || '');
+  const range = mediaRange(req.get('Range'));
   if (range) {
-    const start = Number(range[1]);
-    const maxEnd = start + MEDIA_CHUNK - 1;
-    const end = range[2] ? Math.min(Number(range[2]), maxEnd) : maxEnd;
-    headers.Range = `bytes=${start}-${end}`;
+    headers.Range = range;
   }
 
   // Gives up if the media server hasn't started answering after 10 seconds;
@@ -471,111 +476,81 @@ app.get(/^\/https?:/i, (req, res) => {
   res.redirect(`/?url=${encodeURIComponent(url)}`);
 });
 
-// Proxy mode: swapping x.com for the short domain (pb3p.uk/user/status/123) shows
-// the post in phib straight away, without creating a short link. Posts that
-// don't exist fall through to the 404 page.
-app.get(/^\/(?:\w+|i\/web)\/status\/\d+(?:\/(?:video|photo)\/\d+)?\/?$/, async (req, res, next) => {
+// Proxy mode answers: swapping a service's domain for the short domain shows
+// the post or video in phib straight away, without creating a short link. One
+// that doesn't exist falls through to the 404 page; a failing upstream gets
+// the error page.
+async function sendProxyPage(res, next, lookup, render, label) {
   try {
-    const { url, tweet } = await resolveTweet(parseStatus(`https://x.com${req.path}`));
+    const data = await lookup();
     res.set('Cache-Control', 'public, max-age=300');
-    res.send(renderWatchPage({ target: url, tweet }));
+    res.send(render(data));
   } catch (err) {
-    if (err instanceof TwitterError) {
+    if (err instanceof NotFoundError) {
       return next();
     }
     console.error(err);
-    res.status(502).send(renderErrorPage({ status: 502, message: 'Could not load this post from X right now. Please try again in a moment.' }));
-  }
-});
-
-async function sendYouTube(res, next, value) {
-  try {
-    const { youtube } = await resolveVideo(parseVideo(value));
-    res.set('Cache-Control', 'public, max-age=300');
-    res.send(renderYouTubePage({ youtube }));
-  } catch (err) {
-    if (err instanceof YouTubeError) {
-      return next();
-    }
-    console.error(err);
-    res.status(502).send(renderErrorPage({ status: 502, message: 'Could not load this video from YouTube right now. Please try again in a moment.' }));
+    res.status(502).send(renderErrorPage({ status: 502, message: `Could not load this ${label} right now. Please try again in a moment.` }));
   }
 }
+
+// Proxy mode for Twitter/X: swapping x.com for the short domain
+// (pb3p.uk/user/status/123) shows the post in phib.
+app.get(/^\/(?:\w+|i\/web)\/status\/\d+(?:\/(?:video|photo)\/\d+)?\/?$/, (req, res, next) =>
+  sendProxyPage(
+    res,
+    next,
+    () => resolveTweet(parseStatus(`https://x.com${req.path}`)),
+    ({ url, tweet }) => renderWatchPage({ target: url, tweet }),
+    'post from X'
+  )
+);
 
 // Proxy mode for YouTube: swapping youtube.com for the short domain
 // (pb3p.uk/watch?v=... or pb3p.uk/shorts/...) shows the video in phib.
 app.get(/^\/(watch|shorts\/[\w-]{11})\/?$/, (req, res, next) => {
-  if (!parseVideo(`https://www.youtube.com${req.originalUrl}`)) {
+  const value = `https://www.youtube.com${req.originalUrl}`;
+  if (!parseVideo(value)) {
     return next();
   }
-  sendYouTube(res, next, `https://www.youtube.com${req.originalUrl}`);
+  sendProxyPage(
+    res,
+    next,
+    () => resolveVideo(parseVideo(value)),
+    ({ youtube }) => renderYouTubePage({ youtube }),
+    'video from YouTube'
+  );
 });
 
 // Proxy mode for Instagram: swapping instagram.com for the short domain
 // (pb3p.uk/p/..., pb3p.uk/reel/..., pb3p.uk/share/...) shows the post in phib.
-// Posts that don't exist fall through to the 404 page.
-app.get(
-  /^\/(?:(?:[\w.]{1,30}\/)?(?:p|reels?|tv)\/[\w-]{1,64}|share\/(?:(?:p|reels?)\/)?[\w-]{1,64})\/?$/,
-  async (req, res, next) => {
-    const post = parseInstagram(`https://www.instagram.com${req.path}`);
-    if (!post) {
-      return next();
-    }
-    try {
-      const { instagram } = await resolveInstagram(post);
-      res.set('Cache-Control', 'public, max-age=300');
-      res.send(renderInstagramPage({ instagram }));
-    } catch (err) {
-      if (err instanceof InstagramError) {
-        return next();
-      }
-      console.error(err);
-      res.status(502).send(renderErrorPage({ status: 502, message: 'Could not load this post from Instagram right now. Please try again in a moment.' }));
-    }
+app.get(/^\/(?:(?:[\w.]{1,30}\/)?(?:p|reels?|tv)\/[\w-]{1,64}|share\/(?:(?:p|reels?)\/)?[\w-]{1,64})\/?$/, (req, res, next) => {
+  const post = parseInstagram(`https://www.instagram.com${req.path}`);
+  if (!post) {
+    return next();
   }
-);
+  sendProxyPage(
+    res,
+    next,
+    () => resolveInstagram(post),
+    ({ instagram }) => renderInstagramPage({ instagram }),
+    'post from Instagram'
+  );
+});
 
-// Links saved before the current version of the tweet details (TWEET_VERSION)
-// are looked up again the first time they open, so they show everything newer
-// links do: badges, link previews, every photo and video, and so on. The fresh
-// details are saved back, so later opens stay a plain read, and the link keeps
-// pointing where it did, with the same video or photo picked. If the post is
-// gone or FxTwitter is slow, it shows as saved this time and tries again on the
-// next open.
-async function refreshTweet(code, record) {
-  const { tweet } = record;
+// Saved posts whose details are outdated (stored by an older version, see
+// TWEET_VERSION and isStale) or about to expire (Instagram's media addresses
+// stop working after a few days) are looked up again the first time they
+// open, and the fresh details saved back — with xx, so a link deleted in the
+// meantime doesn't come back. The link keeps pointing where it did, with the
+// same video or photo picked. If the service doesn't answer, the saved
+// details are shown and it's tried again on the next open.
+async function refreshSaved(code, record, key, lookup) {
   try {
-    // Links saved before tweet ids were stored only have the tweet url.
-    const id = tweet.id || tweet.url.match(/\/status\/(\d+)/)[1];
-    const { tweet: fresh } = await resolveTweet(
-      { id },
-      { signal: AbortSignal.timeout(3000), pick: record.target }
-    );
-    record.tweet = fresh;
-    // xx keeps a link deleted in the meantime from coming back.
+    record[key] = (await lookup())[key];
     await redis.set(`url:${code}`, record, { xx: true });
   } catch (err) {
-    if (!(err instanceof TwitterError)) {
-      console.error(err);
-    }
-  }
-}
-
-// Instagram's media addresses stop working after a few days, so a saved post
-// is looked up again when they're about to, or when it was saved before the
-// current version of the post details (see isStale in lib/instagram.js). As
-// with tweets, the fresh details are saved back; if Instagram doesn't answer,
-// the post shows as saved and is tried again on the next open.
-async function refreshInstagram(code, record) {
-  try {
-    const { instagram } = await resolveInstagram(
-      { shortcode: record.instagram.shortcode },
-      { signal: AbortSignal.timeout(5000) }
-    );
-    record.instagram = instagram;
-    await redis.set(`url:${code}`, record, { xx: true });
-  } catch (err) {
-    if (!(err instanceof InstagramError)) {
+    if (!(err instanceof NotFoundError)) {
       console.error(err);
     }
   }
@@ -596,7 +571,13 @@ app.get('/:code', async (req, res, next) => {
       // Short codes are 6 characters, so an 11 character path is a youtu.be
       // link with the short domain swapped in.
       if (VIDEO_ID.test(code)) {
-        return sendYouTube(res, next, `https://youtu.be${req.originalUrl}`);
+        return sendProxyPage(
+          res,
+          next,
+          () => resolveVideo(parseVideo(`https://youtu.be${req.originalUrl}`)),
+          ({ youtube }) => renderYouTubePage({ youtube }),
+          'video from YouTube'
+        );
       }
       return next();
     }
@@ -606,7 +587,11 @@ app.get('/:code', async (req, res, next) => {
     await redis.incr(`clicks:${code}`).catch((err) => console.error(err));
     if (data.tweet) {
       if (data.tweet.v !== TWEET_VERSION) {
-        await refreshTweet(code, data);
+        await refreshSaved(code, data, 'tweet', () => {
+          // Links saved before tweet ids were stored only have the tweet url.
+          const id = data.tweet.id || data.tweet.url.match(/\/status\/(\d+)/)[1];
+          return resolveTweet({ id }, { signal: AbortSignal.timeout(3000), pick: target });
+        });
       }
       return res.send(renderWatchPage({ target, tweet: data.tweet }));
     }
@@ -615,7 +600,9 @@ app.get('/:code', async (req, res, next) => {
     }
     if (data.instagram) {
       if (isStale(data.instagram)) {
-        await refreshInstagram(code, data);
+        await refreshSaved(code, data, 'instagram', () =>
+          resolveInstagram({ shortcode: data.instagram.shortcode }, { signal: AbortSignal.timeout(5000) })
+        );
       }
       return res.send(renderInstagramPage({ instagram: data.instagram }));
     }

@@ -1,10 +1,12 @@
-const loginForm = document.getElementById('login-form');
-const tokenInput = document.getElementById('token-input');
-const errorEl = document.getElementById('error');
-const dashboardEl = document.getElementById('dashboard');
-const filterInput = document.getElementById('filter-input');
-const linksBody = document.getElementById('links-body');
-const emptyEl = document.getElementById('empty');
+const $ = (id) => document.getElementById(id);
+
+const loginForm = $('login-form');
+const tokenInput = $('token-input');
+const errorEl = $('error');
+const dashboardEl = $('dashboard');
+const filterInput = $('filter-input');
+const linksBody = $('links-body');
+const emptyEl = $('empty');
 
 // sessionStorage so the token is forgotten when the tab closes.
 const TOKEN_KEY = 'phib-admin-token';
@@ -52,19 +54,6 @@ function signOut() {
   dashboardEl.hidden = true;
 }
 
-function describeTarget(link) {
-  if (link.tweet) {
-    return `@${link.tweet.handle}: ${link.tweet.text}`;
-  }
-  if (link.youtube) {
-    return `${link.youtube.channel}: ${link.youtube.title}`;
-  }
-  if (link.instagram) {
-    return link.instagram.text ? `@${link.instagram.handle}: ${link.instagram.text}` : `@${link.instagram.handle}`;
-  }
-  return link.target.replace(/^https?:\/\/(www\.)?/, '');
-}
-
 function compare(a, b) {
   const x = a[sort.key] ?? '';
   const y = b[sort.key] ?? '';
@@ -74,9 +63,9 @@ function compare(a, b) {
 
 function render() {
   const total = links.reduce((sum, link) => sum + link.clicks, 0);
-  document.getElementById('stat-links').textContent = links.length.toLocaleString();
-  document.getElementById('stat-clicks').textContent = total.toLocaleString();
-  document.getElementById('stat-unclicked').textContent = links.filter((link) => !link.clicks).length.toLocaleString();
+  $('stat-links').textContent = links.length.toLocaleString();
+  $('stat-clicks').textContent = total.toLocaleString();
+  $('stat-unclicked').textContent = links.filter((link) => !link.clicks).length.toLocaleString();
 
   for (const btn of document.querySelectorAll('.sort-btn')) {
     btn.dataset.active = btn.dataset.sort === sort.key ? (sort.desc ? 'desc' : 'asc') : '';
@@ -159,8 +148,8 @@ loginForm.addEventListener('submit', (e) => {
   load();
 });
 
-document.getElementById('refresh-btn').addEventListener('click', load);
-document.getElementById('logout-btn').addEventListener('click', signOut);
+$('refresh-btn').addEventListener('click', load);
+$('logout-btn').addEventListener('click', signOut);
 filterInput.addEventListener('input', render);
 
 for (const btn of document.querySelectorAll('.sort-btn')) {

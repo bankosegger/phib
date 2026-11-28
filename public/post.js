@@ -416,24 +416,33 @@
     return `<span class="tweet-quote-images"${post.sensitive ? ' data-sensitive' : ''}>${thumbs}</span>`;
   }
 
-  const COMPACT_STATS = [
-    ['replies', 'replies'],
-    ['reposts', 'retweets'],
-    ['likes', 'likes'],
-    ['views', 'views'],
-  ];
+  // The counts shown under a post or, compact, inside a quote or parent post:
+  // the full form also has quotes and bookmarks and a label under each count.
+  const STAT_LABELS = {
+    replies: 'replies',
+    reposts: 'retweets',
+    likes: 'likes',
+    views: 'views',
+    quotes: 'quotes',
+    bookmarks: 'bookmarks',
+  };
+  const COMPACT_KEYS = ['replies', 'reposts', 'likes', 'views'];
 
-  function renderCompactStats(stats) {
-    if (!stats) {
-      return '';
-    }
-    const items = COMPACT_STATS.filter(([, key]) => typeof stats[key] === 'number')
-      .map(
-        ([kind, key]) =>
-          `<span class="compact-stat" title="${escapeHtml(`${stats[key]} ${kind}`)}">${icon(kind)}${escapeHtml(formatCount(stats[key]))}</span>`
-      )
+  function renderStats(stats, { compact = false } = {}) {
+    const keys = compact ? COMPACT_KEYS : Object.keys(STAT_LABELS);
+    const items = keys
+      .map((key) => {
+        const count = stats && stats[key];
+        if (typeof count !== 'number') {
+          return '';
+        }
+        const title = `${count} ${STAT_LABELS[key]}`;
+        return compact
+          ? `<span class="compact-stat" title="${escapeHtml(title)}">${icon(key)}${escapeHtml(formatCount(count))}</span>`
+          : `<span class="tweet-stat" title="${escapeHtml(title)}">${icon(key)}<span>${escapeHtml(formatCount(count))}</span></span>`;
+      })
       .join('');
-    return items ? `<span class="compact-stats">${items}</span>` : '';
+    return compact && items ? `<span class="compact-stats">${items}</span>` : items;
   }
 
   // The name, badges, handle and date of a quote or parent post.
@@ -455,7 +464,7 @@
     const text = quote.text
       ? `<span class="tweet-text">${renderRichText(quote.text, quote.links, { linked: false })}</span>`
       : '';
-    return `<a class="tweet-quote" href="${escapeHtml(postPage(quote))}"><span class="tweet-author">${renderAvatar(quote.author)}<span class="tweet-author-names">${renderCompactAuthor(quote, locale)}</span></span>${text}${renderThumbs(quote)}${quote.card ? renderCard(quote.card, { link: false }) : ''}${renderCompactStats(quote.stats)}</a>`;
+    return `<a class="tweet-quote" href="${escapeHtml(postPage(quote))}"><span class="tweet-author">${renderAvatar(quote.author)}<span class="tweet-author-names">${renderCompactAuthor(quote, locale)}</span></span>${text}${renderThumbs(quote)}${quote.card ? renderCard(quote.card, { link: false }) : ''}${renderStats(quote.stats, { compact: true })}</a>`;
   }
 
   // The post a reply answers, above it as in a thread on x.com, opening its own
@@ -467,7 +476,7 @@
     const text = parent.text
       ? `<span class="tweet-text">${renderRichText(parent.text, parent.links, { linked: false })}</span>`
       : '';
-    return `<a class="post-parent" href="${escapeHtml(postPage(parent))}"><span class="post-parent-gutter">${renderAvatar(parent.author)}</span><span class="post-parent-main"><span class="post-parent-head">${renderCompactAuthor(parent, locale)}</span>${text}${renderThumbs(parent)}${renderCompactStats(parent.stats)}</span></a>`;
+    return `<a class="post-parent" href="${escapeHtml(postPage(parent))}"><span class="post-parent-gutter">${renderAvatar(parent.author)}</span><span class="post-parent-main"><span class="post-parent-head">${renderCompactAuthor(parent, locale)}</span>${text}${renderThumbs(parent)}${renderStats(parent.stats, { compact: true })}</span></a>`;
   }
 
   // The post --------------------------------------------------------------------
@@ -603,27 +612,6 @@
       parts.push(renderQuality(item));
     }
     return `<p class="tweet-meta">${parts.join(' · ')}</p>`;
-  }
-
-  const STATS = [
-    ['replies', 'replies'],
-    ['reposts', 'retweets'],
-    ['likes', 'likes'],
-    ['views', 'views'],
-    ['quotes', 'quotes'],
-    ['bookmarks', 'bookmarks'],
-  ];
-
-  // Old tweets have no view count, and links saved before quotes and bookmarks
-  // were stored have neither; missing counts are left out.
-  function renderStats(stats) {
-    return STATS.map(([kind, key]) => {
-      const count = stats && stats[key];
-      if (count == null) {
-        return '';
-      }
-      return `<span class="tweet-stat" title="${escapeHtml(`${count} ${kind}`)}">${icon(kind)}<span>${escapeHtml(formatCount(count))}</span></span>`;
-    }).join('');
   }
 
   // The inside of an <article class="tweet">: the whole post as phib shows it.

@@ -1,26 +1,28 @@
-const form = document.getElementById('shorten-form');
+const $ = (id) => document.getElementById(id);
+
+const form = $('shorten-form');
 const submitBtn = form.querySelector('button[type="submit"]');
-const urlInput = document.getElementById('url-input');
-const errorEl = document.getElementById('error');
-const resultEl = document.getElementById('result');
-const shortLinkEl = document.getElementById('short-link');
-const copyBtn = document.getElementById('copy-btn');
-const clearBtn = document.getElementById('clear-btn');
-const historyEl = document.getElementById('history');
-const historyBarEl = document.getElementById('history-bar');
-const historyToggleEl = document.getElementById('history-toggle');
-const historyCountEl = document.getElementById('history-count');
-const tweetLayoutEl = document.getElementById('tweet-layout');
-const tweetPostEl = document.getElementById('tweet-post');
-const commentsEl = document.getElementById('comments');
-const youtubeLayoutEl = document.getElementById('youtube-layout');
-const instagramLayoutEl = document.getElementById('instagram-layout');
-const instagramPostEl = document.getElementById('instagram-post');
-const choiceEl = document.getElementById('choice');
-const choiceLabelEl = document.getElementById('choice-label');
-const choiceShortBtn = document.getElementById('choice-short');
-const choiceViewBtn = document.getElementById('choice-view');
-const linkCountEl = document.getElementById('link-count');
+const urlInput = $('url-input');
+const errorEl = $('error');
+const resultEl = $('result');
+const shortLinkEl = $('short-link');
+const copyBtn = $('copy-btn');
+const clearBtn = $('clear-btn');
+const historyEl = $('history');
+const historyBarEl = $('history-bar');
+const historyToggleEl = $('history-toggle');
+const historyCountEl = $('history-count');
+const tweetLayoutEl = $('tweet-layout');
+const tweetPostEl = $('tweet-post');
+const commentsEl = $('comments');
+const youtubeLayoutEl = $('youtube-layout');
+const instagramLayoutEl = $('instagram-layout');
+const instagramPostEl = $('instagram-post');
+const choiceEl = $('choice');
+const choiceLabelEl = $('choice-label');
+const choiceShortBtn = $('choice-short');
+const choiceViewBtn = $('choice-view');
+const linkCountEl = $('link-count');
 
 const HISTORY_KEY = 'phib-history';
 const QUOTE_KEY = 'phib-quote';
@@ -178,22 +180,6 @@ const LINK_ICON =
   '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />' +
   '<path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>';
 
-// What a history entry points to: the post for Twitter/X and Instagram posts,
-// the video for YouTube links, otherwise the target address without its
-// protocol.
-function describeTarget(item) {
-  if (item.tweet) {
-    return `@${item.tweet.handle}: ${item.tweet.text}`;
-  }
-  if (item.youtube) {
-    return `${item.youtube.channel}: ${item.youtube.title}`;
-  }
-  if (item.instagram) {
-    return item.instagram.text ? `@${item.instagram.handle}: ${item.instagram.text}` : `@${item.instagram.handle}`;
-  }
-  return (item.source || item.target).replace(/^https?:\/\/(www\.)?/, '');
-}
-
 // The history list is folded away until the toggle is clicked.
 let historyOpen = false;
 
@@ -293,7 +279,7 @@ function renderInstagram(instagram) {
 }
 
 function renderYouTube(youtube) {
-  const playerEl = document.getElementById('youtube-player');
+  const playerEl = $('youtube-player');
   if (!youtube) {
     playerEl.removeAttribute('src');
     youtubeLayoutEl.hidden = true;
@@ -306,9 +292,9 @@ function renderYouTube(youtube) {
   playerEl.src = embed;
   playerEl.title = youtube.title;
   playerEl.parentElement.style.setProperty('--ratio', youtube.short ? 9 / 16 : 16 / 9);
-  document.getElementById('youtube-backdrop').src = youtube.thumbnail;
-  document.getElementById('youtube-title').textContent = youtube.title;
-  const channelEl = document.getElementById('youtube-channel');
+  $('youtube-backdrop').src = youtube.thumbnail;
+  $('youtube-title').textContent = youtube.title;
+  const channelEl = $('youtube-channel');
   const channelUrl = PhibPost.safeHref(youtube.author.url);
   if (channelUrl) {
     channelEl.href = channelUrl;
@@ -316,7 +302,7 @@ function renderYouTube(youtube) {
     channelEl.removeAttribute('href');
   }
   channelEl.textContent = youtube.author.name;
-  document.getElementById('youtube-link').href = youtube.url;
+  $('youtube-link').href = youtube.url;
   youtubeLayoutEl.hidden = false;
 }
 
